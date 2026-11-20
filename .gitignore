@@ -55,3 +55,6 @@ obj/
 # Segredos locais
 app/infra/.env
 app/backend/**/chave*.pem
+
+# Documentação de planejamento local
+/docs/roadpmap-sdd.md

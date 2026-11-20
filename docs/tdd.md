@@ -1,89 +1,110 @@
 # TDD — Sistema Web para Gestão de Locadoras de Veículos
 
-- **Status:** Rascunho técnico revisado; desenho validado pelo solicitante como base para futura SDD.
-- **Data:** 2026-11-09.
-- **Escopo:** desenho da v1 do PRD, sem implementação, instalações, provisionamento, commits ou PR.
-- **Fonte de produto:** [docs/prd.md](prd.md), revisão datada de 2026-11-09, status `Validado para TDD` e handoff liberado na seção 12.2. RF-01–RF-19, RNF-01–RNF-07, RN-01–RN-09, J-01–J-05 e CA-01–CA-12 permanecem a referência.
-- **Decisor conhecido:** solicitante, por meio da ferramenta `question`; responsáveis nominais de engenharia, segurança, produto e operação não designados.
-- **Autoria:** documento elaborado pelo assistente com as decisões do solicitante. Não houve revisão técnica independente.
-- **Governança:** consultados `AGENTS.md` e `openspec/config.yaml`. O PRD registra preparação anterior sem Git; nesta etapa foi constatado Git limpo na `main` e criada a branch `docs/tdd-locacao-veiculos`. A observação antiga não descreve o ambiente atual. Não foi alterado o PRD.
-- **Autorização:** o solicitante confirmou arquitetura, dados, segurança, bibliotecas, tratamento privado de fotos e consolidação dos contratos e roadmap neste arquivo. Isso não autoriza implementação, produção ou aprovação automática da etapa SDD.
+**Status:** Base de design técnico da v1
 
-## 1. Resumo e objetivos técnicos
+**Data:** 19/11/2026 (reorganização documental; versão anterior de 09/11/2026)
 
-Construir uma SPA administrativa Angular e uma API .NET para operar empresas isoladas, frota, clientes, condutores, preços, contratação e devolução. O desenho prioriza isolamento entre empresas, consistência sob concorrência e demonstrativos históricos verificáveis, antes de otimizações de escala não demonstradas.
+**Revisão documental:** 19/11/2026. O documento passa a seguir nove seções e adota, como alvo de design, as decisões de sessão, publicação, testes, Compose, segredos e workflow registradas abaixo. Não houve implementação.
 
-### 1.1 Restrições confirmadas
+**Contexto documental:** este TDD é a base de design da v1 e descreve o estado do repositório na `main`. Não registra código existente, versões instaladas, recursos provisionados nem testes executados. A branch `docs/tdd-locacao-veiculos` não existe e não faz parte deste documento. O [docs/prd.md](prd.md) continua sendo a fonte do escopo funcional e não foi modificado. A frase do PRD sobre preparação sem Git permanece naquele arquivo e não é corrigida aqui.
 
-- Angular 22, Standalone, Zoneless e Signals; Tailwind CSS 4.
-- .NET 10, solução `.slnx`, Clean Architecture, Entity Framework Core, SQL Server e ASP.NET Core Identity.
-- Português, BRL, fuso `America/Sao_Paulo`, conta administrativa única por empresa.
-- Código, testes e configurações da aplicação deverão ficar em `app/`; documentos e governança permanecem na raiz.
-- Desenvolvimento local primeiro. R2 é o armazenamento remoto escolhido; local não exige conta nem credenciais Cloudflare.
-- Todo o escopo obrigatório do PRD integra a v1. Incrementos intermediários não são uma v1 reduzida.
+**Escopo:** v1 administrativa do PRD. Documento de design técnico, não plano de desenvolvimento orientado a testes e não descrição de sistema já construído.
+
+**Decisor técnico:** solicitante, na revisão que originou este texto. Responsáveis nominais de engenharia, segurança, produto e operação não foram designados. Não houve revisão técnica independente.
+
+**Fontes:** [docs/prd.md](prd.md), datado de 09/11/2026, status `Validado para TDD`. RF-01 a RF-19, RNF-01 a RNF-07, RN-01 a RN-09, J-01 a J-05 e CA-01 a CA-12 permanecem a referência funcional. As decisões de plataforma desta revisão estão escritas por completo neste arquivo. O domínio da locação não foi substituído pelo de outro produto.
+
+**Condições de execução:** a verificação de versões da seção 2.1, os testes da seção 7, a escolha dos parâmetros de rate limit do registro, a instalação do schema `prototype-first` na abertura da segunda change (F2) e a verificação da oferta gratuita ainda precisam ocorrer. Não são decisões em aberto de sessão, topologia ou fase das fotos, nem resultados concluídos. Esta revisão não autoriza implementação, provisionamento, produção nem aprovação automática da SDD.
+
+## 1. Resumo, objetivos e limites
+
+Construir uma SPA administrativa Angular e uma API .NET para operar empresas isoladas, frota, clientes, condutores, preços, contratação e devolução. O desenho prioriza isolamento entre empresas, consistência sob concorrência e demonstrativos históricos verificáveis. A publicação gratuita da seção 6.1 é a arquitetura-alvo da última fase e ainda não foi provisionada.
+
+Todo o escopo obrigatório do PRD integra a v1. Nenhuma fase anterior à F5 é uma v1 pronta. A F5 entrega as fotos obrigatórias dos veículos; não é uma versão futura. Incrementos intermediários não reduzem a v1.
+
+### 1.1 Restrições de desenho
+
+- Angular 22, TypeScript, componentes standalone, zoneless, Signals e Signal Forms. A validação de negócio continua no servidor.
+- Tailwind CSS, Lucide e componentes próprios, sem Angular Material.
+- .NET 10, solução `.slnx`, Clean Architecture, Entity Framework Core, SQL Server e ASP.NET Core Identity para senha e bloqueio.
+- Português, BRL, fuso `America/Sao_Paulo`, conta administrativa única por empresa. Clientes e condutores não têm login.
+- Código, testes e configurações da aplicação ficam em `app/`. Documentos, governança e ferramentas do repositório permanecem na raiz. O `compose.yml` da raiz é infraestrutura local, não código da aplicação.
+- Desenvolvimento local primeiro: SQL Server Developer só no Compose de infraestrutura; API e Angular no host, em duas origens.
+- Fotos privadas do veículo, com a API como proxy e bucket R2 privado, são obrigatórias na v1 e só entram na F5.
+- A combinação Angular 22 e .NET 10 é o alvo. Patch, Node e lockfiles não são fixados neste documento.
 
 ### 1.2 Limites
 
-Não desenhar funcionários, múltiplas contas/perfis por empresa, reservas, cancelamento, reabertura, pagamentos, movimentação de caução, emissão fiscal, portal do cliente, manutenção ou integrações documentais/seguradoras. Recuperação de senha e administração da plataforma continuam fora dos fluxos v1; o procedimento operacional de recuperação é condição para produção, não funcionalidade implicitamente adicionada.
+Não desenhar funcionários, múltiplas contas ou perfis por empresa, reservas, cancelamento, reabertura, pagamentos, movimentação de caução, emissão fiscal, portal do cliente, manutenção ou integrações documentais e com seguradoras. Recuperação de senha e administração da plataforma continuam fora dos fluxos da v1, conforme a seção 5.2 do PRD. A perda da credencial única permanece risco operacional na seção 9; não é entrega de fase nem funcionalidade acrescentada.
 
-Não existem metas aprovadas de carga, latência, disponibilidade, cobertura percentual, RPO ou RTO. Não se afirma conformidade legal, autenticidade de documentos nem prontidão operacional.
+Não existem metas aprovadas de carga, latência, disponibilidade, cobertura percentual, retenção, RPO ou RTO. Este documento não preenche esses itens com números de outro produto e não afirma conformidade legal, autenticidade de documentos nem prontidão operacional.
 
-## 2. Decisões técnicas centralizadas
+## 2. Registro central de decisões
 
-Todas as decisões abaixo estão **confirmadas pelo solicitante**. Detalhes de contratos, índices e organização são o detalhamento autorizado do pacote técnico, não decisões de produto novas.
+Os identificadores DT-01 a DT-15 mantêm os temas já usados neste TDD e não foram renumerados. O texto é o que passa a valer. DT-16 a DT-21 registram decisões desta revisão que não cabiam no enunciado anterior sem esconder o tema. Nenhuma decisão abaixo descreve componente instalado, recurso Azure criado ou teste executado.
 
-| ID | Tema e decisão | Origem, justificativa e alternativa | Consequências |
-| --- | --- | --- | --- |
-| DT-01 | Frontend Angular/CLI 22, TypeScript 6.0, Node 24 com mínimo 24.15.0, npm, RxJS 7; Standalone/Zoneless/Signals | Stack inicial e entrevista. Documentação oficial confirma os requisitos consultados; Angular 22.0.x exige TS >=6.0 e <6.1 | Fixar minor/patch compatíveis e lockfile na fase F0; não usar Zone.js |
-| DT-02 | Tailwind 4 com `@tailwindcss/postcss`; componentes próprios acessíveis; formulários reativos tipados | Entrevista. Evita kit visual e dependência de estado global como NgRx | Equipe assume acessibilidade; ligar eventos de formulários a Signals/notificação de mudança |
-| DT-03 | C# 14/.NET 10, ASP.NET Core com controllers REST; monólito modular Clean Architecture | Stack inicial e entrevista. Microserviços acrescentariam coordenação distribuída desnecessária | Domain/Application independentes de transporte e infraestrutura; uma unidade de deploy de API |
-| DT-04 | EF Core 10, provider SQL Server 10, Identity EF Core 10; SQL Server 2022 Developer local | Entrevista. Banco compartilhado facilita transações e migrations | Developer não é licença de produção; edição/hospedagem futura a validar |
-| DT-05 | Identity para credenciais; JWT próprio de acesso por 5 minutos; refresh opaco rotativo; sessão SQL revogável por 8h absolutas | Usuário preferiu JWT à recomendação inicial de cookie de sessão. Identity bearer nativo não é JWT | Validação de sessão em cada chamada reduz benefício stateless, mas atende logout imediato de CA-01 |
-| DT-06 | Mesma origem; access token somente em memória; refresh em cookie HttpOnly/Secure/SameSite=Strict; antiforgery nos fluxos com cookie | Entrevista. Evita tokens persistidos em armazenamento acessível a scripts | XSS continua ameaça; renovação coordenada entre abas e CSP necessárias |
-| DT-07 | Multitenancy por EmpresaId, filtros de leitura, guarda de escrita e FKs compostas | Entrevista. Banco/schema por empresa teria maior isolamento físico e custo operacional | SQL direto e consultas históricas exigem atenção; identificador recebido nunca determina empresa |
-| DT-08 | Snapshots relacionais de contrato e demonstrativo, exclusão lógica, preços de combustível versionados por vigência | Entrevista. Referências vivas sozinhas não preservam RF-19/RNF-07 | Maior armazenamento e política de retenção a definir; devolução retroativa consulta preço vigente no instante informado |
-| DT-09 | Dinheiro em `decimal`, transporte decimal em strings, UTC para instantes e fuso IANA explícito | Entrevista. Evita ponto flutuante e dias civis no cálculo de duração | Servidor calcula; navegador não é autoridade monetária |
-| DT-10 | Transações SQL, bloqueio coordenado das mutações da empresa, índice único de aluguel aberto, rowversion/ETag e idempotência persistida | Entrevista. Índice sozinho não protege alterações simultâneas dos cadastros | Menor paralelismo por empresa; medir antes de reduzir granularidade dos bloqueios |
-| DT-11 | Cloudflare R2 privado via AWSSDK.S3; SQL guarda URL da API, chave/bucket e metadados, nunca imagem | Escolha explícita do usuário, seguida da aprovação de proxy privado. Alternativa SQL binário foi rejeitada | Dependência externa de infraestrutura, sem tornar fotos públicas; não equivale a integração de negócio nova |
-| DT-12 | JPEG/PNG, limite de 5 MiB e 16 megapixels; SkiaSharp decodifica/reencoda sem metadados; adaptador local privado | Entrevista posterior à escolha do R2. URLs assinadas públicas ao portador foram evitadas | Native assets/licenças/patches precisam de verificação; SQL e S3 não compartilham transação |
-| DT-13 | DTOs, validação explícita e mapeamento manual; OpenAPI, `/api/v1`, ProblemDetails | Entrevista e autorização de detalhamento. Sem MediatR, AutoMapper ou FluentValidation inicialmente | Mais código explícito, menos dependências; invariantes continuam no domínio |
-| DT-14 | xUnit, WebApplicationFactory, Testcontainers SQL Server, Vitest e Playwright | Entrevista. SQL real é necessário para verificar locks, índices e rowversion | SQLite/EF InMemory não comprovam concorrência nem isolamento SQL Server |
-| DT-15 | Logs estruturados nativos, auditoria SQL transacional, desenho de CI GitHub Actions; implantação inicialmente local | Entrevista. Observabilidade sem serviço comercial obrigatório | Destino de logs, hospedagem, backup, retenção e SLO de produção permanecem gates |
+**Origem:** “PRD” é requisito do documento de produto; “entrevista anterior” é decisão já registrada no desenho de 09/11/2026 e mantida; “revisão de 19/11/2026” é a adoção, como alvo, das decisões de plataforma desta reorganização.
 
-Versões patch de SDKs, SkiaSharp, AWSSDK.S3 e ferramentas de testes não foram fixadas. A aprovação é da tecnologia; a matriz exata deve ser verificada e travada em F0, sem instalar nada neste fluxo. Não copiar exemplos antigos com `--force` para contornar conflitos de dependência.
+| ID | Tema | Decisão e estado | Origem/decisor | Justificativa, alternativas e consequências |
+| --- | --- | --- | --- | --- |
+| DT-01 | Frontend | **Definida como alvo, sem implementação:** Angular 22, TypeScript, componentes standalone, zoneless, Signals e Signal Forms. A validação de negócio permanece no servidor. | Revisão de 19/11/2026; a entrevista anterior já escolhia Angular 22, standalone, zoneless e Signals | Estado de tela com Signals e entrada com Signal Forms. Não usar Zone.js. Patches e Node ficam para a seção 2.1. |
+| DT-02 | UI | **Definida como alvo:** Tailwind CSS, Lucide e componentes próprios acessíveis, sem Angular Material. | Revisão de 19/11/2026; entrevista anterior para Tailwind e componentes próprios | Menos dependência de kit visual. A equipe cobre teclado, foco, contraste, rótulos e erros associados ao campo. Versões exatas na seção 2.1. |
+| DT-03 | Backend | **Mantida como alvo:** C# e .NET 10, ASP.NET Core com controllers REST, solução `.slnx` e monólito em Clean Architecture. | Entrevista anterior | Domain e Application independentes de transporte e infraestrutura. Uma unidade de deploy da API. Módulos internos são de locação, não deploys separados. |
+| DT-04 | Persistência | **Definida como alvo:** SQL Server, EF Core e migrations versionadas. Local: SQL Server 2022, edição Developer, apenas no Compose. Publicação: Azure SQL na oferta gratuita da DT-16, ainda não criada. | Entrevista anterior, ajustada na revisão de 19/11/2026 | Transações e migrations no mesmo banco. Developer não é licença de publicação. A tag da imagem é fixada na F1. Sem SQLite e sem EF InMemory. |
+| DT-05 | Sessão | **Definida como alvo:** Identity para senha e bloqueio. JWT próprio HS256, chave aleatória de 32 bytes por versão, `kid`, acesso de 15 minutos, tolerância de relógio de 30 segundos e rotação de assinatura a cada 90 dias como procedimento, não como job. Sessão SQL absoluta de 8 horas. Refresh opaco somente em memória na SPA e como hash no SQL. | Revisão de 19/11/2026 | A consulta de sessão em cada requisição atende o logout imediato de CA-01. A tolerância de 30 segundos é só do relógio do JWT e não altera a RN-08. Detalhe na seção 6.2. |
+| DT-06 | CORS e cliente da sessão | **Definida como alvo:** SPA e API em origens distintas, no host durante o desenvolvimento, sem proxy de mesma origem. CORS pela origem exata, sem `AllowAnyOrigin` e sem `AllowCredentials`. Access token e refresh só em memória. Sem cookie, sem antiforgery, sem `localStorage`, `sessionStorage`, IndexedDB ou sessão entre abas. Recarga exige novo login. Reúso do refresh revoga a família. | Revisão de 19/11/2026 | Duas origens locais exercitam o mesmo tipo de chamada da publicação. CORS não autentica. XSS continua ameaça ao bearer em memória. |
+| DT-07 | Multitenancy | **Mantida:** isolamento por `EmpresaId`, filtros de leitura, guarda de escrita e FKs compostas. A claim `empresaId` é resolvida no servidor a partir da conta e da sessão. O identificador enviado pelo cliente não escolhe a empresa. Uma conta administrativa por empresa. Clientes e condutores não autenticam. | Entrevista anterior e PRD | Banco ou schema por empresa teria outro custo operacional e não é o desenho. SQL direto e histórico precisam manter o tenant. |
+| DT-08 | Histórico e unicidade | **Mantida** a preservação por snapshots, exclusão lógica e preço de combustível versionado por vigência. **Definida nesta revisão:** CPF de cliente PF, CNPJ de cliente PJ, CPF de condutor e placa são únicos apenas entre registros ativos da mesma empresa. | Entrevista anterior; unicidade ajustada na revisão de 19/11/2026 | A exclusão lógica libera o identificador para um registro novo, que é outra identidade. Contratos, snapshots e demonstrativos continuam ligados ao registro original. O mesmo CPF pode ser cliente e condutor quando o PRD já permite. |
+| DT-09 | Tempo e dinheiro | **Mantida:** dinheiro em `decimal`; transporte decimal em strings; instantes em UTC; fuso `America/Sao_Paulo`. O servidor é a autoridade do cálculo, inclusive RN-01 a RN-09. | Entrevista anterior e PRD | Evita ponto flutuante e dia civil como duração. O navegador não fecha valor. |
+| DT-10 | Consistência | **Mantida:** transação SQL, bloqueio das escritas da empresa, índice único de um aluguel aberto por veículo, `rowversion`/ETag e idempotência dos comandos de contrato. | Entrevista anterior e RNF-03 | O índice sozinho não protege alterações simultâneas de cadastro. Menor paralelismo por empresa é aceito no início local e não é promessa de capacidade. |
+| DT-11 | Fotos na v1 | **Definida:** fotos privadas do veículo são obrigatórias na v1 e implementadas somente na F5. A F2 grava e edita os dados do veículo, sem upload nem gerenciamento de foto. A F5 integra a foto ao cadastro pelo desenho já existente: API como proxy, bucket R2 privado e sem URL pública. Um veículo pode ser gravado sem foto anexada, porque RF-06 e CA-03 o permitem. | PRD; revisão de 19/11/2026 para a fase | Essa permissão de gravar o veículo sem arquivo não torna a funcionalidade opcional nem a empurra para versão futura. Nenhuma fase anterior à F5 é v1 pronta. |
+| DT-12 | Limites da imagem | **Mantida:** JPEG e PNG, 5 MiB e 16 megapixels. SkiaSharp decodifica e reencoda sem metadados. No desenvolvimento, o adaptador local de armazenamento usa volume privado. | Entrevista anterior | WebP, 20 megapixels, cinco imagens por registro e cotas de 70% e 80% não fazem parte deste desenho. SQL e armazenamento de objeto não compartilham uma transação. |
+| DT-13 | Contratos HTTP | **Mantida:** DTOs, validação explícita, mapeamento manual, OpenAPI, prefixo `/api/v1` e ProblemDetails. Sem MediatR, AutoMapper ou FluentValidation. | Entrevista anterior | Mais código explícito e menos dependências. Invariantes continuam no domínio. |
+| DT-14 | Testes | **Definida como alvo, sem execução:** MSTest para unidade e integração, `WebApplicationFactory` e SQL Server real. Vitest e Playwright permanecem. A matriz de UI inclui Signal Forms. | Revisão de 19/11/2026 | Sem SQLite, EF InMemory ou Testcontainers. SQL real verifica locks, índices e `rowversion`. Nenhum teste deste documento está marcado como executado. |
+| DT-15 | Observabilidade | **Definida como alvo:** logs estruturados pelo `ILogger` nativo, sem Serilog. Health de processo, sem consulta contínua ao SQL. Auditoria de negócio no SQL, na mesma transação da mudança crítica. CI é mudança própria; não há workflow presumido. | Entrevista anterior, ajustada na revisão de 19/11/2026 | A seção 6.1 proíbe keep-alive artificial diante do AutoPause. Destino de logs, retenção e metas numéricas continuam sem aprovação do PRD. |
+| DT-16 | Publicação | **Arquitetura-alvo da F6, sem recurso criado:** Angular no Static Web Apps Free; API no App Service Linux F1, com preferência por East US e chamada HTTPS direta; Azure SQL na oferta gratuita com `useFreeLimit=true` e `freeLimitExhaustionBehavior=AutoPause`, nunca `BillOverUsage`. | Revisão de 19/11/2026 | Sem BFF, sem proxy pago do Static Web Apps e sem plano pago automático. Se a oferta gratuita não couber, parar e revisar. Identidade gerenciada para o SQL e segredos em App Settings. O PRD não aprova RPO, RTO nem quantidade de cópias. |
+| DT-17 | Segredos | **Definida como alvo:** parâmetros não sensíveis em `appsettings`; User Secrets em Development; App Settings na publicação. Arquivo versionado não contém segredo. | Revisão de 19/11/2026 | Sem serviço adicional de cofre como dependência obrigatória da v1. User Secrets não é mecanismo de publicação. |
+| DT-18 | Compose e migrations | **Definida como alvo:** `compose.yml` na raiz, somente infraestrutura, com SQL Server Developer, healthcheck e volume nomeado. API e Angular no host. `Database.MigrateAsync()` apenas em Development. Fora de Development, sem migration automática. | Revisão de 19/11/2026 | Não há seed de contas sintéticas de funcionários. O RF-01 exige o registro público da empresa. A conta administrativa local do Developer não é reutilizada fora de Development. |
+| DT-19 | Login | **Definida, somente no login:** senha mínima de 8 caracteres, bloqueio de 15 minutos após 5 falhas e 5 requisições por minuto por IP, sem fila. Erro genérico e `429` quando a taxa do login estoura. | Revisão de 19/11/2026 | O registro persiste a senha pelo mesmo Identity e não conclui com senha que essa política rejeita. Bloqueio, janela e taxa por IP do login não são o rate limit do registro. Sem exigência extra de composição de senha. |
+| DT-20 | Rate limit do registro | **Obrigatória; parâmetros ainda não escolhidos:** o registro público e não autenticado tem rate limit. Limite, janela, identificação e mecanismo ficam para a SDD da F1. | Revisão de 19/11/2026 e RF-01 | Os números da DT-19 não são copiados para esse endpoint. A F1 não pode sair sem a proteção especificada e verificada. |
+| DT-21 | Workflow das fases | **Definida para o trabalho futuro:** cada fase nasce em feature branch. A primeira change, a F1, usa o workflow `spec-driven`: proposal, specs, design e tasks antes do código. A partir da segunda change, a F2, o schema passa a `prototype-first`, no mesmo momento de transição do Gestão de Estacionamento: proposal, specs, protótipo quando houver tela, design e tasks antes do código. Evidência e checklist só depois da verificação. Sync e archive no fechamento. | Revisão de 19/11/2026 | O [openspec/config.yaml](../openspec/config.yaml) permanece em `spec-driven` na F1. O schema `prototype-first` ainda não foi instalado. A instalação e a seleção nesse arquivo ocorrem na abertura da F2. Esta revisão não altera esse arquivo. |
 
-## 3. Arquitetura e estrutura
+### 2.1. Seleção de versões e reprodutibilidade
 
-### 3.1 Componentes
+A combinação-alvo é Angular 22 e .NET 10. Antes de implementar, verificar a disponibilidade e a compatibilidade dessas versões, selecionar os patches e a versão de Node, e registrar SDKs, manifests e lockfiles. A combinação precisa passar por restore, build e testes locais na abertura da implementação. Esta revisão não fixa patch, Node nem lockfile e não copia esses valores de outro repositório, de badge ou de README. Atualizações futuras repetem a verificação. Intervalo de versão e badge não demonstram compatibilidade.
+
+## 3. Arquitetura e organização
 
 ```mermaid
 flowchart LR
-    A[Administrador da empresa] --> W[Angular SPA]
-    W -->|HTTPS /api/v1 + JWT| API[ASP.NET Core Api]
-    API --> APP[Application: casos de uso]
-    APP --> D[Domain: invariantes e cálculo]
-    API --> I[Infrastructure: composição e adapters]
-    I -. implementa portas .-> APP
-    I --> SQL[(SQL Server + Identity)]
-    I -->|S3 privado| R2[(Cloudflare R2)]
-    I -->|somente ambiente local| VOL[Volume privado de fotos]
+  U[Administrador / navegador] -->|HTTPS / conteúdo estático| E[Azure Static Web Apps Free / Angular]
+  U -->|HTTPS / JWT bearer / CORS restrito| A[Azure App Service Linux F1 / ASP.NET Core API]
+  A --> APP[Casos de uso e cálculo da locação]
+  A --> DB[(Azure SQL / oferta gratuita / AutoPause)]
+  A -->|somente fotos / S3 privado| R2[(Cloudflare R2 privado)]
 ```
 
-As setas indicam fluxo/composição; dependências de compilação são: Application → Domain; Infrastructure → Application/Domain; Api → Application e Infrastructure apenas para composição. Domain não referencia EF, Identity, HTTP, SDK S3 ou Angular. A Api não contém regras de cálculo.
+O diagrama é a topologia-alvo da F6, não um inventário de recursos existentes. Nenhum Static Web App, App Service ou Azure SQL foi provisionado. A SPA é carregada do Static Web Apps Free e chama a URL HTTPS da API no App Service. `/api/v1` é caminho da API, não proxy na origem da SPA. O R2 aparece somente no caminho das fotos, a partir da F5; o navegador não o acessa. No desenvolvimento, a API e o Angular rodam no host, em origens distintas, e o SQL Server Developer roda apenas no `compose.yml`.
 
-| Módulo | Responsabilidade | RF |
+**Fronteira de confiança (DT-05, DT-06, DT-07, DT-11 e DT-16):** toda operação protegida revalida JWT, sessão, conta e versão no servidor. A claim `empresaId` sai da conta e da sessão, não de cabeçalho, corpo ou query enviados pelo cliente. CORS lista origens exatas e não usa `AllowAnyOrigin` nem `AllowCredentials`. Não há cookie e, por isso, não há antiforgery. API para SQL e API para R2 usam segredo ou identidade somente no servidor.
+
+Dependências de compilação: Application → Domain; Infrastructure → Application e Domain; Api → Application, e Infrastructure apenas na composição. Domain não referencia EF, Identity, HTTP, SDK S3 ou Angular. A Api não contém regra de cálculo.
+
+| Módulo | Responsabilidade | RF e fase |
 | --- | --- | --- |
-| Acesso | Registro atômico empresa/conta, login, refresh, sessão e logout | RF-01–03 |
-| Frota e preços | Grupos, planos, veículos/foto, seguros, combustíveis, taxas | RF-04–07, RF-11–13 |
-| Pessoas | PF/PJ, vínculos e condutores, elegibilidade e coerência de CNH | RF-08–10 |
-| Locações | Contrato aberto, edição, estimativa, devolução e histórico | RF-14–19 |
-| Transversal | Contexto de empresa, auditoria, idempotência, relógio e erros | RNF-01–07 |
+| Acesso | Registro atômico de empresa e conta, login, refresh, consulta de sessão, logout, CORS e tenant | RF-01 a RF-03; F1 |
+| Frota e preços | Grupos, planos, dados do veículo, seguros, combustíveis e taxas. Foto fora deste módulo até a F5 | RF-04 a RF-07 e RF-11 a RF-13; F2, foto na F5 |
+| Pessoas | PF e PJ, vínculos, condutores, elegibilidade e coerência de CNH | RF-08 a RF-10; F2 |
+| Locações | Contrato aberto, edição, estimativa, devolução, cálculo e histórico | RF-14 a RF-19; F3 e F4 |
+| Fotos | Proxy privado, metadados, leitura autorizada e compensação, integrados ao veículo | RF-06 e RNF-01; F5 |
+| Transversal | Contexto de empresa, auditoria, idempotência, relógio e erros | RNF-01 a RNF-07 |
 
-Um `DbContext` derivado de IdentityDbContext abriga identidade e dados do monólito, permitindo transação única de registro e negócio. A Application depende de portas específicas de consulta/persistência e unidade de trabalho; evitar repositório genérico que esconda locks ou force materialização. Interface de relógio baseada em TimeProvider permite testes determinísticos.
+Um `DbContext` derivado de `IdentityDbContext` reúne identidade e dados do monólito, para o registro da empresa e da conta na mesma transação. A Application depende de portas específicas e de unidade de trabalho. Não usar repositório genérico que esconda lock ou force materialização. O relógio de teste usa `TimeProvider`.
 
-### 3.2 Organização futura, não criada nesta entrega
+### 3.1 Organização proposta, não criada
 
 ```text
+compose.yml                      infraestrutura local; ferramenta do repositório, não publicação
 app/
   backend/
     Locadora.slnx
@@ -97,65 +118,63 @@ app/
     global.json
     Directory.Packages.props
   frontend/
-    src/app/core/                 # sessão, HTTP, erros
-    src/app/shared/               # controles acessíveis, formatação
-    src/app/features/             # acesso, frota, pessoas, preços, locações
+    src/app/core/                 sessão em memória, HTTP e erros
+    src/app/shared/               controles acessíveis e formatação
+    src/app/features/             acesso, frota, pessoas, preços e locações
     package.json
     package-lock.json
   e2e/
-  infra/                         # compose local e exemplos sem segredos
-  scripts/                       # verificações da aplicação
 docs/prd.md
 docs/tdd.md
-openspec/                        # próxima etapa, sem alterações neste fluxo
-.github/                        # governança e integração do repositório
+openspec/                        spec-driven na F1; prototype-first a partir da F2, ainda não instalado
+.github/                         governança; CI não está presumida
 ```
 
-Migrations pertencem à Infrastructure. Configurações específicas ficam em `app/`; um workflow em `.github/workflows/` apenas invocará verificações nessa pasta. SQL Server local terá volume persistente e porta restrita ao host, não exposição à rede pública.
+Nada dessa árvore de aplicação foi criado por este documento. Migrations pertencem à Infrastructure. O `compose.yml` fica na raiz porque é ferramenta de infraestrutura do repositório; código, testes e configuração da aplicação continuam em `app/`. A porta do SQL é publicada só no loopback.
 
-### 3.3 Frontend
+### 3.2 Frontend
 
-Rotas lazy por funcionalidade, componentes standalone e estado por serviços com Signals/computed. RxJS atende HTTP, cancelamento e eventos; subscriptions com descarte no ciclo de vida. Formulários reativos tipados não notificam automaticamente todos os estados no modo zoneless: refletir mudanças consumidas pelos templates em Signals ou marcar explicitamente a atualização. Testar alterações programáticas e erros assíncronos.
+Rotas lazy por funcionalidade, componentes standalone e estado em serviços com Signals e `computed`. Signal Forms fazem a entrada e a validação de tela. RxJS atende HTTP, cancelamento e eventos, com descarte no ciclo de vida. O servidor continua sendo a autoridade das regras de negócio.
 
-Guard de rota melhora navegação, mas não substitui autorização na API. Interceptor só envia JWT para a origem/API permitida; nunca o envia ao R2 ou a URLs arbitrárias. Não há SSR, service worker nem cache offline de dados pessoais na v1.
+Guard de rota melhora a navegação e não substitui a autorização da API. O interceptor anexa `Authorization: Bearer` somente à URL da API configurada, sem `withCredentials`, e nunca envia o token ao R2 ou a um destino arbitrário. Tokens e refresh existem só em memória: sem `localStorage`, `sessionStorage`, IndexedDB ou compartilhamento entre abas. Recarga exige novo login. Não há SSR, service worker nem cache offline de dados pessoais na v1.
 
-Listagens têm estados carregando/vazio/erro, filtros e paginação. Formulários exibem resumo e erros associados por campo, preservam foco e não dependem apenas de cor. Moeda BRL e datas no fuso aprovado; envio usa formatos canônicos. Estimativa e valor final são visualmente distintos, com km pendentes e garantia separada.
+Listagens têm estados de carregando, vazio e erro, com filtros e paginação. Formulários exibem resumo e erros por campo, preservam foco e não dependem só de cor. Moeda em BRL e datas no fuso aprovado; o envio usa formato canônico. Estimativa e valor final são visualmente distintos, com quilômetros pendentes e caução separada.
 
-## 4. Dados e persistência
+## 4. Modelo de dados, estados e concorrência
 
 ### 4.1 Convenções
 
-- IDs opacos GUID gerados pelo servidor. Não são mecanismo de autorização.
-- Tabelas da empresa: `Id`, `EmpresaId`, criação/alteração UTC e `rowversion` nas entidades mutáveis. Cadastros excluíveis possuem `ExcluidoEmUtc`; aluguel concluído ocultado possui essa marca sem perder o contrato.
-- Chave alternativa `(EmpresaId, Id)` permite FKs compostas em todas as relações de negócio, inclusive itens, foto e registros de demonstração.
-- Documentos e placa têm representação normalizada para comparação; pontuação é apresentação. Strings têm tamanhos máximos declarados no schema/OpenAPI, definidos com amostras válidas na SDD; jamais truncar silenciosamente dados do PRD.
-- Preços unitários `decimal(19,6)`; totais/componentes arredondados `decimal(19,2)`; litros/capacidade `decimal(12,3)`; km/franquia/hodômetros inteiros não negativos. Validar limites de armazenamento e overflow antes de multiplicar, sem arredondamento silencioso da entrada.
-- Instantes persistidos como `datetimeoffset` UTC; validade de CNH como `date`. Nenhum cálculo de diária usa quantidade de mudanças de data no calendário.
+- IDs opacos, GUID gerados pelo servidor. Não autorizam por si só.
+- Tabelas da empresa: `Id`, `EmpresaId`, criação e alteração em UTC, e `rowversion` nas entidades mutáveis. Cadastros excluíveis têm `ExcluidoEmUtc`. Aluguel concluído ocultado recebe essa marca e conserva o contrato.
+- A chave alternativa `(EmpresaId, Id)` sustenta FKs compostas nas relações de negócio, inclusive itens, foto e demonstrativo.
+- Documentos e placa têm forma normalizada para comparação. Pontuação é apresentação. Strings têm tamanho máximo no schema e no OpenAPI, definido com amostras válidas na SDD. Não truncar em silêncio um dado exigido pelo PRD.
+- Preços unitários em `decimal(19,6)`; totais e componentes arredondados em `decimal(19,2)`; litros e capacidade em `decimal(12,3)`; quilômetros, franquia e hodômetros como inteiros não negativos. Validar limite e overflow antes de multiplicar. Não arredondar a entrada em silêncio.
+- Instantes em `datetimeoffset` UTC. Validade de CNH em `date`. Nenhuma diária é contada por mudança de data no calendário.
 
 ### 4.2 Modelo lógico
 
 | Entidade | Campos e relações relevantes |
 | --- | --- |
-| Empresa | ID técnico; não exigir nome empresarial, CNPJ ou outros dados além de RF-01 |
-| Usuario Identity | EmpresaId único, username normalizado globalmente único, e-mail e hash de senha; uma conta por empresa |
-| Sessao / Refresh | Usuário/empresa, expiração absoluta, revogação; hashes de refresh, família e consumo para detectar replay |
-| Grupo | Nome; planos e veículos |
-| Plano | Grupo, modalidade Diário/Controlado/Livre, diária e parâmetros condicionais; no máximo uma configuração por modalidade/grupo |
-| Veiculo | Campos de RF-06; grupo; combustível; capacidade; referência opcional à foto ativa |
-| FotoObjeto | Empresa/veículo, URL estável da API, bucket/chave gerados internamente, MIME, tamanho, hash e estado de upload; sem bytes |
-| Cliente | Tipo PF/PJ, dados comuns/endereço/e-mail opcional; campos de documentos conforme tipo |
-| VinculoCliente | Relação PF–PJ de clientes da mesma empresa, sem expor conta ou responsabilidade de funcionário |
-| Condutor | Cliente contratante vinculado, CPF, CNH/validade e contatos de RF-09; identidade PF |
-| TaxaServico | Nome, preço, fixa/diária; contratos mantêm cópia |
-| PrecoSeguro | Empresa, tipo Cliente/Terceiros e preço diário |
+| Empresa | ID técnico. Não exigir nome empresarial, CNPJ ou dado além do RF-01 |
+| Usuario Identity | `EmpresaId` único, username normalizado único na plataforma, e-mail e hash de senha. Uma conta por empresa |
+| Sessao / Refresh | Usuário, empresa, versão de acesso, expiração absoluta e revogação. Hash do refresh, família e consumo para detectar reúso |
+| Grupo | Nome, planos e veículos |
+| Plano | Grupo, modalidade Diário, Controlado ou Livre, diária e parâmetros da modalidade. No máximo uma configuração por modalidade e grupo |
+| Veiculo | Campos do RF-06, grupo, combustível, capacidade e referência opcional à foto ativa. A ausência da foto não impede gravar o veículo |
+| FotoObjeto | Empresa, veículo, URL estável da API, bucket e chave gerados internamente, MIME, tamanho, hash e estado do upload. Sem bytes na linha |
+| Cliente | Tipo PF ou PJ, dados comuns, endereço e e-mail opcional. Documentos conforme o tipo |
+| VinculoCliente | Relação PF–PJ de clientes da mesma empresa, sem conta e sem responsabilidade de funcionário |
+| Condutor | Cliente contratante, CPF, CNH, validade e contatos do RF-09. Pessoa física |
+| TaxaServico | Nome, preço e modalidade fixa ou diária. O contrato guarda cópia |
+| PrecoSeguro | Empresa, tipo Cliente ou Terceiros, e preço diário |
 | PrecoCombustivel | Empresa, tipo, preço unitário e início de vigência UTC gerado pelo servidor |
-| Aluguel | Estado, referências de cliente/condutor/veículo/plano, saída, previsão/retorno, hodômetros, litros finais, caução e versão |
-| ContratoSnapshot | Dados exibíveis do contratante, condutor, veículo, grupo/plano e parâmetros, copiados por versão contratual |
-| ItemContratado | Identidade de origem, nome, categoria, modalidade e preço capturado; origem contratação/edição/devolução |
-| Demonstrativo / Componente | Tipo estimativa/final, versão de regra, entradas, D/K/franquia, preços, valores brutos, arredondados e total; final imutável |
-| Auditoria | Empresa, ator, instante, ação, entidade/ID, correlação e campos alterados sem valores pessoais |
+| Aluguel | Estado, cliente, condutor, veículo, plano, saída, previsão, retorno, hodômetros, litros finais, caução e versão |
+| ContratoSnapshot | Dados exibíveis do contratante, do condutor, do veículo, do grupo, do plano e dos parâmetros, copiados por versão contratual |
+| ItemContratado | Identidade de origem, nome, categoria, modalidade e preço capturado. Origem na contratação, na edição ou na devolução |
+| Demonstrativo / Componente | Estimativa ou final, versão da regra, entradas, D, K, franquia, preços, valores brutos, arredondados e total. O final é imutável |
+| Auditoria | Empresa, ator, instante, ação, entidade, ID, correlação e campos alterados, sem valores pessoais |
 | ComandoIdempotente | Empresa, ator, operação, chave, hash do comando, estado e referência ao resultado persistido |
-| TrabalhoObjeto | Compensação/remoção de objetos com chave, tentativas e próximo processamento; sem URL assinada |
+| TrabalhoObjeto | Compensação ou remoção de objeto, com chave, tentativas e próximo processamento. Sem URL assinada |
 
 ```mermaid
 erDiagram
@@ -176,306 +195,356 @@ erDiagram
     DEMONSTRATIVO ||--o{ COMPONENTE : discrimina
 ```
 
-O diagrama omite tabelas transversais para legibilidade. Cada aluguel guarda exatamente um cliente, um condutor, um veículo e um plano. Ter CNH no cliente PF não elimina o registro de condutor nem o vínculo exigido em RF-10. Relações PF–PJ não tornam automaticamente todos os condutores elegíveis: o condutor selecionado deve estar vinculado ao contratante.
+O diagrama omite tabelas transversais. Cada aluguel guarda um cliente, um condutor, um veículo e um plano. CNH no cliente PF não elimina o condutor nem o vínculo do RF-10. Relação PF–PJ não torna todos os condutores elegíveis: o condutor selecionado precisa estar vinculado ao contratante.
 
 ### 4.3 Invariantes e índices
 
-- Índice único global de username normalizado; índice único de EmpresaId no usuário. Registro cria empresa e usuário na mesma transação, sem empresa órfã em falha.
-- Índices únicos por empresa de placa, documento de cliente e CPF de condutor. Unicidade inclui registros logicamente excluídos, pois o PRD não autoriza reutilização; conflito informa o impedimento sem restaurar ou sobrescrever registros.
-- `(EmpresaId, GrupoId, Modalidade)` único para planos; atualizar a configuração, não criar duplicatas da modalidade.
-- Índice único filtrado `(EmpresaId, VeiculoId)` com estado EmAberto. Não condicionar apenas a exclusão lógica: um aberto nunca pode ser ocultado.
-- Índices para `(EmpresaId, Estado, SaidaUtc, Id)`, `(EmpresaId, GrupoId, Id)`, vínculos de cadastros a aluguéis abertos e vigência de combustível `(EmpresaId, Tipo, InicioVigenciaUtc)`.
-- Constraint de item impede duplicar taxa/seguro pela mesma identidade de origem no aluguel. Taxa já contratada não pode ser incluída novamente na devolução.
-- Checks para valores não negativos, capacidade positiva, campos próprios de cada modalidade, retorno previsto posterior à saída, litros dentro da capacidade contratada e hodômetros válidos. Validar no domínio e reforçar o que for expressável no banco.
-- FKs sem cascade físico em contratos. Exclusão lógica aplica os bloqueios RF-04–RF-11; plano com qualquer aluguel permanece não excluível.
+- Username normalizado é único na plataforma. `EmpresaId` é único no usuário. O registro cria empresa e usuário na mesma transação e não deixa empresa órfã se falhar.
+- Placa, CPF de cliente PF, CNPJ de cliente PJ e CPF de condutor são únicos entre registros ativos da mesma empresa, por índice filtrado em que `ExcluidoEmUtc` é nulo. A exclusão lógica libera o identificador para um registro novo, que é outra identidade. Contratos, snapshots e demonstrativos permanecem ligados ao ID original, não ao identificador reaproveitado. Conflito entre ativos informa o impedimento e não restaura nem sobrescreve o registro excluído.
+- O mesmo CPF pode existir como cliente e como condutor quando o RF-09 já permite, inclusive quando o cliente PF é o próprio condutor. Essa coincidência não afrouxa a unicidade dentro de cada papel.
+- `(EmpresaId, GrupoId, Modalidade)` é único para planos. Atualizar a configuração; não duplicar a modalidade.
+- Índice único filtrado `(EmpresaId, VeiculoId)` no estado Em aberto. Um aluguel aberto não pode ser ocultado. A exclusão lógica de veículo não substitui essa regra.
+- Índices para `(EmpresaId, Estado, SaidaUtc, Id)`, `(EmpresaId, GrupoId, Id)`, vínculos de cadastro com aluguel aberto e vigência de combustível `(EmpresaId, Tipo, InicioVigenciaUtc)`.
+- Constraint de item impede repetir a mesma taxa ou o mesmo seguro pela mesma identidade de origem no aluguel. Taxa já contratada não entra de novo na devolução.
+- Checks de valor não negativo, capacidade positiva, campos próprios de cada modalidade, retorno previsto posterior à saída, litros dentro da capacidade contratada e hodômetros válidos. O domínio valida, e o banco reforça o que for expressável.
+- FKs de contrato sem cascade físico. A exclusão lógica aplica os bloqueios de RF-04 a RF-11. Plano usado em qualquer aluguel não é excluível.
 
 ### 4.4 Histórico e preços
 
-Snapshots não dependem de joins a cadastros atuais para mostrar contratos. Na contratação copiar nomes/documentos necessários, identificação do veículo, capacidade/tipo de combustível, plano e preços. Edição de cadastro não reescreve contratos existentes.
+O snapshot não depende de join com o cadastro atual para mostrar o contrato. Na contratação, copiar nomes e documentos necessários, identificação do veículo, capacidade, tipo de combustível, plano e preços. Editar cadastro não reescreve contrato existente. Excluir o cadastro também não reescreve o contrato: o histórico continua no registro original, mesmo que um cadastro novo reuse o documento ou a placa.
 
-Edição de aluguel gera revisão de contrato: itens mantidos conservam seus valores; substituídos/incluídos capturam o preço atual e novos dados pertinentes. Revisões anteriores continuam auditáveis; apenas a revisão corrente conduz a devolução. Aluguel concluído e demonstrativo final não têm rota de edição/reabertura.
+Edição de aluguel gera revisão. Itens mantidos conservam o valor. Itens substituídos ou incluídos capturam o preço atual e os dados novos pertinentes. Revisões anteriores continuam auditáveis. Só a revisão corrente conduz a devolução. Aluguel concluído e demonstrativo final não têm rota de edição nem de reabertura.
 
-Preço de combustível é append-only: a configuração adiciona vigência a partir do relógio do servidor, sem alterar períodos passados. Para devolução retroativa, buscar o último preço com início de vigência menor ou igual ao retorno real informado. Se não existir, bloquear cálculo e conclusão; não aplicar silenciosamente preço posterior. Essa interpretação foi aprovada na entrevista. Não permitir sobreposição ambígua de vigências; empate é resolvido pela ordenação serial das alterações e identificador de versão.
+Preço de combustível é append-only. A configuração acrescenta vigência a partir do relógio do servidor e não altera período passado. Na devolução retroativa, usar o último preço cujo início de vigência seja menor ou igual ao retorno real informado. Se não existir, bloquear cálculo e conclusão. Não aplicar preço posterior em silêncio. Não permitir vigências sobrepostas de forma ambígua. Empate resolve-se pela ordem serial da alteração e pelo identificador da versão.
 
-Demonstrativo final copia preço/versão de combustível efetivamente aplicado, todos os demais preços, entradas, componentes, regra de cálculo e instantes. Ocultar aluguel concluído não apaga nenhuma dessas informações. Consulta histórica inclui ocultos apenas por opção explícita autorizada; jamais desabilitar isolamento junto com o filtro de exclusão.
+O demonstrativo final copia o preço e a versão de combustível aplicados, os demais preços, as entradas, os componentes, a regra e os instantes. Ocultar aluguel concluído não apaga essas informações. Consulta histórica inclui ocultos só por opção explícita e autorizada. O filtro de exclusão não desliga o isolamento por empresa.
 
 ### 4.5 Transações e concorrência
 
-Para a v1, toda mutação de negócio da empresa começa com transação e bloqueio de atualização da linha Empresa, mantido até commit (`UPDLOCK/HOLDLOCK` no SQL Server, implementado apenas na Infrastructure). Todos os caminhos de escrita, inclusive alterações/exclusões de cadastros, preços e confirmação de upload, seguem esse protocolo. Ele serializa escritas por empresa e elimina a corrida entre validar vínculos e alterá-los. Consultas não precisam adquirir esse lock; leituras que autorizam uma escrita ocorrem dentro da transação protegida.
+Na v1, toda mutação de negócio da empresa começa com transação e bloqueio de atualização da linha Empresa, mantido até o commit (`UPDLOCK`/`HOLDLOCK` no SQL Server, só na Infrastructure). Alteração e exclusão de cadastro, preço e confirmação de upload seguem o mesmo protocolo. Ele serializa as escritas da empresa e elimina a corrida entre validar um vínculo e alterá-lo. Consulta pura não adquire esse lock. Leitura que autoriza escrita ocorre dentro da transação protegida.
 
-O índice único permanece defesa final contra dupla locação. `rowversion` nas entidades/raiz Aluguel detecta tela desatualizada; alteração de itens incrementa também a versão da raiz. Transações são curtas, sem chamadas R2, processamento de imagens ou interação humana dentro delas.
+O índice único continua sendo a defesa final contra duas locações abertas do mesmo veículo. `rowversion` na raiz Aluguel e nas entidades mutáveis detecta tela desatualizada. Alterar item incrementa também a versão da raiz. A transação é curta e não inclui chamada ao R2, processamento de imagem nem interação humana.
 
-Disponibilidade é derivada da inexistência de aluguel EmAberto, não de booleano redundante em Veiculo. Criação e ocupação são a mesma inserção; conclusão e liberação são a mesma transição confirmada. Troca de veículo em aluguel aberto revalida novo veículo, libera o anterior e altera snapshots atomicamente. Saída original é imutável na API; edição não cria reserva nem desloca início para futuro.
+Disponibilidade é a inexistência de aluguel Em aberto, não um booleano redundante no veículo. Criar e ocupar são a mesma inserção. Concluir e liberar são a mesma transição confirmada. Troca de veículo em aluguel aberto revalida o novo, libera o anterior e altera os snapshots na mesma transação. A saída original é imutável. Edição não cria reserva nem desloca o início para o futuro.
 
-Alterar cliente PF que representa condutor exige coerência de CNH em todos os registros correspondentes: atualização coordenada quando permitida; se condutor tiver aluguel aberto, rejeitar mudança incompatível. Revalidar documentos/vínculos em toda alteração relevante de aluguel; devolução não revalida vencimento posterior à contratação. Atualizações genéricas não podem contornar esse serviço.
+Alterar cliente PF que também é condutor exige CNH coerente em todos os registros correspondentes: atualização coordenada quando permitida; se o condutor tiver aluguel aberto, rejeitar mudança incompatível. Revalidar documento e vínculo em toda alteração relevante do aluguel. A devolução não revalida vencimento de CNH ocorrido depois da contratação. Atualização genérica não contorna esse serviço.
 
-Falhas de constraint viram conflito de negócio, nunca resposta SQL crua. Deadlock/erro transitório permite retry limitado da transação inteira com nova leitura e mesma chave idempotente; não repetir cegamente só o último SaveChanges. Conflito de ETag exige recarregar, não retry automático que sobrescreva intenção do usuário. Serialização por empresa é hipótese aceitável para início local, não promessa de capacidade.
-
-## 5. Cálculo e representação temporal
-
-Serviço puro de domínio produz estimativa/final; somente o servidor é autoridade (DT-09). API transporta valores decimais em strings com ponto, por exemplo `"1000.00"`; entradas rejeitam excesso de escala e valores fora do intervalo. UI formata em português sem converter cálculo financeiro para `number`.
-
-| Regra | Desenho e verificação |
-| --- | --- |
-| RN-01 | Saída capturada no servidor na criação. D = máximo(1, teto((retorno UTC − saída UTC) / 24h)). Exibição no fuso São Paulo; duração efetivamente transcorrida, não dias civis |
-| RN-02 | Hodômetros inteiros, K = final − inicial. Estimativa informa km não apurados, sem fingir K=0 como total final |
-| RN-03 | Diário: B bruto = D × diária + K × preço/km |
-| RN-04 | Controlado: franquia total = D × franquia diária; B bruto = D × diária + máximo(0, K − franquia total) × excedente |
-| RN-05 | Livre: B bruto = D × diária; km registrados, mas não cobrados |
-| RN-06 | Uma componente para cada taxa e seguro; fixa uma vez, diária por D; taxa adicionada no retorno usa D efetivo completo |
-| RN-07 | Reposição = (capacidade contratada − litros finais) × preço do combustível vigente no retorno; zero com tanque cheio; sem preço bloqueia mesmo sem reposição |
-| RN-08 | Arredondar B; se retorno real > previsto, multa única = arredondar(0,10 × B). Sem tolerância ou incidência sobre adicionais |
-| RN-09 | Arredondamento decimal meio para cima, implementado por AwayFromZero para valores não negativos; somar componentes já arredondadas. Caução = 1000.00 separada e sem efeito no custo |
-
-O subtotal do plano B é uma componente monetária: registrar termos de diária/km para explicação, somar seus valores brutos e arredondar B antes da multa. Não arredondar cada termo intermediário de modo a mudar B. Cada taxa, cada seguro, combustível e multa são componentes separados, arredondados antes do total. Persistir bruto com precisão suficiente, sem reduzir silenciosamente os valores usados.
-
-Estimativa retorna parcelas conhecidas e indicador de incompletude: diário/controlado têm km pendentes; combustível e eventual atraso não são garantidos na contratação. Plano Livre elimina a pendência por km, não transforma reposição futura em preço definitivo. Caução nunca compõe subtotal ou total.
-
-Entradas de data/hora da API usam ISO 8601 com offset explícito; servidor normaliza UTC e valida correspondência com o fuso do negócio quando a entrada representar horário local. UI faz conversão explícita, sem depender do fuso do dispositivo. Rejeitar horário local inexistente e exigir desambiguação em transições de fuso. CNH válida até o dia local do retorno previsto é elegível inclusive nesse dia. Relógio de teste cobre offsets e transições históricas; não fixar São Paulo como UTC−3 para todas as datas.
-
-## 6. Interfaces e fluxos
-
-### 6.1 Convenções de API
-
-Contratos de design abaixo estão autorizados para documentação; a especificação detalhada/OpenAPI e os testes serão produzidos na SDD/implementação. Não são endpoints existentes.
-
-- JSON, base `/api/v1`, nomes de campos camelCase; enums com nomes estáveis, IDs como strings. Empresa e ator derivados da sessão, nunca escolhidos no body/query.
-- Listas: `page`, `pageSize`, filtros permitidos e ordenação estável com ID como desempate; envelope `items`, `page`, `pageSize`, `total`. Padrão técnico inicial: 20, máximo 100 itens por página, sujeito à medição, não SLO.
-- GET de entidade devolve `ETag` opaco derivado de rowversion; PUT/DELETE de mutáveis e devolução exigem `If-Match`. Ausência: 428; versão diferente: 412.
-- ProblemDetails inclui `status`, `title`, `code`, `traceId` e mapa `errors` por campo quando aplicável; sem documentos completos, senhas, stack trace ou SQL.
-- 400: formato/validação; 401: sessão/token inválido; 403: política/CSRF; 404: inexistente ou de outra empresa; 409: vínculo, disponibilidade, estado ou chave idempotente conflitante; 413: arquivo excedido; 415: mídia não aceita; 503: dependência indisponível. Sucesso de criação 201 com Location; edição 200; exclusão lógica 204.
-- `Idempotency-Key` obrigatório em criação de aluguel e devolução. Unicidade por empresa/ator/operação; hash canônico do comando inclui recurso, não o token JWT. Mesma chave/mesmo comando retorna recurso/resultado original; outra entrada na mesma chave retorna 409. Persistir referência ao resultado, evitando duplicar PII em cache de resposta.
-- Verificar replay idempotente antes do ETag atual; só nova operação exige precondição corrente. Registro idempotente e efeito de negócio têm o mesmo commit. Timeout pós-commit é resolvido repetindo a mesma chave.
-
-### 6.2 Catálogo de contratos
-
-| Rotas | Entradas e saídas principais | Regras |
-| --- | --- | --- |
-| `GET /auth/csrf` | Token antiforgery associado ao cookie correspondente; sem cache | Bootstrap e renovação da proteção dos fluxos com cookie |
-| `POST /auth/register` | username, email, password → identidade criada | Público, protegido contra abuso e CSRF; sem campos empresariais extras; não autentica implicitamente |
-| `POST /auth/login` | username, password → accessToken/expiresIn e cookie refresh | Credenciais inválidas com resposta genérica; nova sessão |
-| `POST /auth/refresh` | Cookie refresh + antiforgery → novo access token e refresh rotacionado | Sem access token obrigatório; origem validada; replay revoga família |
-| `POST /auth/logout` | Cookie/antiforgery e sessão → 204 | Revoga sessão/família no SQL e limpa cookie; repetição segura; não depende apenas de apagar estado no cliente |
-| `GET /auth/me` | Identidade mínima da conta/empresa | JWT e sessão ativos |
-| `/grupos`, `/planos`, `/veiculos` e `/{id}` | GET/POST/PUT/DELETE; campos RF-04–06 | Planos condicionais por modalidade; filtro `grupoId`; agrupamento visual sem perder paginação |
-| `/clientes`, `/condutores` e `/{id}` | CRUD lógico com campos RF-08–09 | Discriminador PF/PJ; vínculo e coerência de CNH; CPF/CNPJ validados localmente |
-| `/clientes/{id}/vinculos-pj` | Consultar/adicionar/remover vínculos PF–PJ | Somente clientes compatíveis da mesma empresa |
-| `/taxas-servicos` e `/{id}` | CRUD lógico com nome, preço e modalidade | Bloqueio de edição/exclusão com aluguel aberto |
-| `GET/PUT /configuracoes/seguros/{tipo}` | Preço diário por tipo; indicar não configurado | Não criar preço implícito zero; preço zero explícito é permitido |
-| `GET/PUT /configuracoes/combustiveis/{tipo}` | Preço e vigência atribuída pelo servidor | PUT acrescenta versão vigente, sem editar passado |
-| `GET /alugueis` e `GET /alugueis/{id}` | Listagem RF-16 e contrato/demonstrativo | Filtros de estado, veículo, período e inclusão explícita de ocultos |
-| `POST /alugueis/estimativas` | Dados de contratação, sem saída editável → parcelas conhecidas | Não ocupa veículo; captura horário da simulação e informa que criação recalcula |
-| `POST /alugueis` | clienteId, condutorId, veiculoId, planoId, retornoPrevisto, hodometroInicial, taxaIds, seguros → aberto | Servidor captura saída e preços; exige idempotência |
-| `PUT /alugueis/{id}` | Campos editáveis da contratação, sem saída/estado/final → revisão atual | Só aberto, ETag; mantidos preservam preços, substituídos usam atuais |
-| `POST /alugueis/{id}/devolucao/previa` | retornoReal, hodometroFinal, litrosRestantes, taxasAdicionais → cálculo proposto | Não conclui; retorna versões da configuração/preços utilizados |
-| `POST /alugueis/{id}/devolucao` | Mesmos dados + versões aceitas na prévia → final | ETag e idempotência; se preço/configuração mudou, 409 e nova prévia em vez de confirmar valor inesperado |
-| `DELETE /alugueis/{id}` | Sem body → ocultação lógica | Só concluído; sem apagar contratos |
-| `PUT/GET/DELETE /veiculos/{id}/foto` | Multipart para upload; leitura binária; remoção lógica da referência | Autorização da empresa e bloqueio de alteração com aluguel aberto; nunca URL externa recebida |
-
-Campos obrigatórios e validações são os do PRD; API não torna e-mail obrigatório para cliente, não acrescenta campos empresariais e não dispensa o registro de condutor. Validade de CNH e CPF/CNPJ são validações declarativas, sem consulta oficial.
-
-### 6.3 Contratação e devolução
-
-```mermaid
-sequenceDiagram
-    actor Adm as Administrador
-    participant UI as Angular
-    participant API as API/Application
-    participant DB as SQL Server
-    Adm->>UI: Confirmar contratação
-    UI->>API: POST aluguel + JWT + Idempotency-Key
-    API->>DB: Validar sessão; iniciar transação e lock Empresa
-    API->>DB: Checar replay, vínculos, documentos, preços e disponibilidade
-    API->>DB: Inserir aberto + snapshots + estimativa + auditoria + resultado
-    DB-->>API: Commit (índice único protege veículo)
-    API-->>UI: 201 + ETag + parcelas conhecidas
-    Adm->>UI: Informar devolução e aceitar prévia
-    UI->>API: POST devolução + If-Match + chave + versões da prévia
-    API->>DB: Sessão; transação; lock; replay/estado/versões
-    API->>API: Calcular com preços e entradas validados
-    API->>DB: Final imutável + estado concluído + auditoria + resultado
-    DB-->>API: Commit (veículo deixa de ter aluguel aberto)
-    API-->>UI: 200 + demonstrativo final
-```
+Falha de constraint vira conflito de negócio, nunca resposta SQL crua. Deadlock ou erro transitório permite retry limitado da transação inteira, com nova leitura e a mesma chave idempotente. Não repetir só o último `SaveChanges`. Conflito de ETag exige recarregar; não há retry automático que sobrescreva a intenção de quem usa. A serialização por empresa é hipótese aceitável para o início local, não promessa de capacidade.
 
 ```mermaid
 stateDiagram-v2
+    state "Em aberto" as EmAberto
+    state "Concluído" as Concluido
     [*] --> EmAberto: contratação válida
     EmAberto --> EmAberto: edição válida / nova revisão
     EmAberto --> Concluido: devolução atômica
     Concluido --> Concluido: ocultar da operação
 ```
 
-Não há transição de cancelamento, retorno a aberto ou edição de concluído. Repetir conclusão com chave original retorna o resultado persistido; outra chave em concluído gera conflito, sem cobrar de novo. Falha antes do commit não altera disponibilidade. Comando concorrente de edição/devolução perde por ETag/estado, não reabre aluguel.
+Não há cancelamento, retorno a Em aberto nem edição de concluído.
 
-### 6.4 Autenticação e revogação
+### 4.6 Cálculo da locação e representação temporal
 
-Identity valida username/senha, hash, lockout e normalização. Serviço de tokens próprio usa bibliotecas Microsoft de JWT, assinatura assimétrica, algoritmo permitido fixo, chave identificada por `kid`, issuer/audience/lifetime validados; nunca inventar criptografia. Claims mínimas: sub, sid, empresaId, jti, iat, exp, iss e aud; sem documentos pessoais.
+O serviço puro de domínio produz estimativa e valor final. Somente o servidor é autoridade (DT-09). A API transporta decimais em string com ponto, por exemplo `"1000.00"`. Entrada com escala excessiva ou fora do intervalo é rejeitada. A UI formata em português e não converte o cálculo para `number`.
 
-Em toda chamada protegida, após validação criptográfica consultar Sessao no SQL: não revogada, ainda válida, mesmo usuário/empresa das claims. Falha de SQL fecha o acesso, sem fallback permissivo nem cache positivo que permita reutilização após logout. Requisições já autorizadas antes de um logout não são desfeitas retroativamente; nenhuma requisição subsequente pode iniciar autorização com a sessão revogada.
-
-Refresh tem entropia criptográfica, somente hash no banco, rotação atômica e histórico de consumo por família até expiração. TTL de refresh e cookies nunca ultrapassa as 8h absolutas da sessão; renovação não prorroga esse limite. JWT expira no menor instante entre emissão + 5 minutos e expiração absoluta da sessão. Logout invalida JWT ainda não expirado porque sid já está revogado. Limpar cookie não é a revogação.
-
-Angular coordena uma renovação por vez e entre abas; em replay real ou concorrência não coordenada, revogar família e solicitar novo login, nunca aceitar o token antigo repetidamente. Após reload, renovar sessão por cookie e recolocar access token apenas em memória. Login/refresh retornam `Cache-Control: no-store`.
-
-### 6.5 Fotos: fluxo privado e consistência distribuída
-
-Bucket R2 sem domínio público/r2.dev. AWSSDK.S3 recebe endpoint R2 e região conforme suporte oficial (`auto` ou alias aceito pelo SDK); usar somente operações compatíveis verificadas. Credenciais mínimas limitadas ao bucket, fora do navegador. Endpoint/caminho são configuração confiável; cliente não envia URL para fetch, evitando SSRF.
-
-1. Autorizar sessão/empresa e validar ETag do veículo. Limitar corpo a 5 MiB, validar assinatura, dimensões positivas e produto largura×altura <=16 milhões antes da alocação. Aceitar apenas JPEG/PNG estáticos; rejeitar truncados, animação e formato divergente. Reencodar pixels para remover EXIF/metadados; limitar também saída, memória, tempo e concorrência do processamento. Reencodificação não é promessa de antivírus.
-2. Criar registro pendente sob transação curta e chave aleatória por empresa/upload. Upload ainda não é foto ativa nem referência retornada em listagem.
-3. Enviar imagem saneada ao R2 fora da transação. Verificar sucesso do objeto esperado; retries usam mesma chave, nunca nome original/documento.
-4. Nova transação com lock da empresa: revalidar veículo, ETag e ausência de aluguel aberto; ativar referência apenas após objeto disponível, atualizar versão do veículo e auditar. Se veículo foi alugado/alterado durante upload, não ativar e agendar compensação.
-5. Em substituição, tornar referência anterior inacessível na API e registrar trabalho de remoção. Exclusão física depende da política de retenção; não apagar objetos referenciados por necessidade histórica. Falha/reinício deixa pendentes que o reconciliador identifica e remove com política segura aprovada antes do piloto.
-
-`BackgroundService` na API processa trabalhos SQL duráveis, com lease/tentativas e remoção idempotente; não depender de fila só em memória. Limpeza nunca inclui objetos ativos; falhas finais geram alerta e não somem silenciosamente. Backup/restauração precisam abranger tabela de referências e inventário de objetos.
-
-Leitura usa GET autenticado da API: checar sessão e EmpresaId, fazer streaming do objeto esperado e retornar MIME saneado, `nosniff` e `Cache-Control: private, no-store`. Angular obtém Blob via HttpClient com JWT e cria object URL temporária, revogada ao sair do componente/logout; `<img src>` direto não envia Authorization. Não persistir URL de Blob, URL assinada nem URL pública no banco. A URL persistida é relativa à API, e bucket/chave são metadados internos. Não retornar redirect para S3.
-
-Se R2 estiver indisponível, foto retorna erro/placeholder acessível; consultas e locação sem necessidade de imagem continuam possíveis. Upload fracassado preserva foto ativa anterior. No ambiente local, porta de armazenamento usa volume privado e o mesmo protocolo; isso não prova comportamento real do R2. Teste em bucket isolado é obrigatório antes do piloto, sem criar conta nesta etapa.
-
-## 7. Segurança e operação
-
-### 7.1 Defesa e privacidade
-
-| Ameaça | Defesa e evidência exigida |
+| Regra | Desenho e verificação |
 | --- | --- |
-| IDOR/acesso entre empresas | Contexto de tenant obrigatório, FKs compostas, validação de escrita, fotos privadas; testes A/B em GET/PUT/DELETE/IDs relacionados/histórico |
-| Bypass de filtro de exclusão | Repositório histórico remove somente soft-delete e mantém EmpresaId; revisão de SQL direto e filtros ignorados |
-| Roubo de JWT/refresh | TLS, memória apenas, cookie protegido, CSRF, CSP e sem scripts arbitrários; sid revogável e rotação |
-| Credential stuffing/abuso de cadastro | Rate limit por rota/origem de conexão e lockout Identity; parâmetros calibrados em F0 sem tratar limites como SLO |
-| Upload malicioso/DoS | Limites de tamanho/pixels, decode restrito, reencode, processamento limitado, dependências corrigidas e sem execução de conteúdo |
-| PII em telemetria | Sem body de login/cadastros, Authorization, cookies, documentos completos ou query sensível nos logs; logs por IDs técnicos |
-| Alteração histórica/corrida | Snapshots, final imutável, auditoria transacional, ETag e locks; testes com conexões independentes |
+| RN-01 | Saída capturada no servidor na criação. `D = máximo(1, teto((retorno UTC − saída UTC) / 24h))`. Exibição no fuso de São Paulo. Duração transcorrida, não dias civis |
+| RN-02 | Hodômetros inteiros. `K = final − inicial`. A estimativa informa quilômetros não apurados e não finge `K = 0` como total final |
+| RN-03 | Diário: `B` bruto `= D × diária + K × preço/km` |
+| RN-04 | Controlado: franquia total `= D × franquia diária`. `B` bruto `= D × diária + máximo(0, K − franquia total) × excedente` |
+| RN-05 | Livre: `B` bruto `= D × diária`. Quilômetros são registrados e não são cobrados |
+| RN-06 | Um componente para cada taxa e cada seguro. Fixa uma vez; diária por `D`. Taxa incluída no retorno usa o `D` efetivo completo |
+| RN-07 | Reposição `= (capacidade contratada − litros finais) × preço do combustível vigente no retorno`. Tanque cheio gera zero. Sem preço vigente, o cálculo e a conclusão ficam bloqueados mesmo quando a reposição seria zero |
+| RN-08 | Arredondar `B`. Se o retorno real for posterior ao previsto, multa única `= arredondar(0,10 × B)`. Sem tolerância de atraso e sem incidência sobre adicionais |
+| RN-09 | Arredondamento decimal de meio para cima, por `AwayFromZero` nos valores não negativos. Somar componentes já arredondados. Caução `= 1000.00`, separada e sem efeito no custo |
 
-Antiforgery é obrigatório em registro/login/refresh/logout e demais rotas que aceitem autenticação por cookie; validar origem e não habilitar CORS amplo. Rotas de negócio só aceitam bearer, não cookie implicitamente. Frontend/API devem usar a mesma origem também no desenvolvimento via proxy HTTPS. SameSite não substitui token CSRF.
+`B` é um componente monetário. Registrar os termos de diária e quilômetro para explicação, somar os brutos e arredondar `B` antes da multa. Não arredondar cada termo intermediário de um modo que mude `B`. Cada taxa, cada seguro, o combustível e a multa são componentes separados, arredondados antes do total. Persistir o bruto com precisão suficiente, sem reduzir em silêncio o valor usado.
 
-EmpresaId vem da identidade validada e sua sessão, não de cabeçalho informado livremente. Guarda de SaveChanges rejeita entidades de outra empresa; filtros não bastam para attach/update nem SQL bruto. Rotinas globais de registro/sessão têm interfaces mínimas explícitas, sem endpoint administrativo genérico. Nenhum segredo de R2/assinatura sai para Angular.
+A estimativa devolve as parcelas conhecidas e um indicador de incompletude. Diário e Controlado têm quilômetros pendentes. Combustível e eventual atraso não ficam garantidos na contratação. O plano Livre elimina a pendência de quilômetro e não transforma a reposição futura em preço definitivo. A caução nunca compõe subtotal nem total.
 
-### 7.2 Configuração e observabilidade
+Data e hora da API entram em ISO 8601 com offset explícito. O servidor normaliza para UTC e valida a correspondência com o fuso do negócio quando a entrada representar horário local. A UI converte de forma explícita e não depende do fuso do dispositivo. Rejeitar horário local inexistente e exigir desambiguação na transição de fuso. CNH válida até o dia local do retorno previsto é elegível nesse dia. O relógio de teste cobre offsets e transições históricas e não fixa São Paulo como UTC−3 para todas as datas.
 
-- Segredos locais via secret store/variáveis não versionadas; exemplos somente com placeholders. Chaves de assinatura persistentes por ambiente e rotação com período de validação das chaves anteriores. Não gerar chave nova a cada reinício.
-- Configuração validada no startup: SQL, issuer/audience, relógio, storage adapter, bucket/endpoint e limites. Falhar cedo em configuração insegura; ambiente Development não deve ser presumido em produção.
-- Auditoria na mesma transação da mudança crítica: empresa, ator, momento, ação, entidade/ID e correlação. Registrar categorias/campos alterados, não valores de documentos ou senha. Apenas inserção via aplicação; acesso e retenção a definir antes de produção.
-- Logs estruturados via ILogger: traceId, rota parametrizada, duração, status, falhas de dependência, conflitos e retries; sem body ou tokens. Medir latência p50/p95/p99, erros, locks/deadlocks, conflitos, sessões inválidas, filas de limpeza e erros R2. Coletar baseline antes de pactuar metas.
-- Health checks de processo e readiness SQL, sem detalhes públicos; monitorar R2 separadamente para não tornar indisponibilidade de fotos indisponibilidade de toda a operação.
+## 5. Interfaces, autorização e sequências
 
-### 7.3 Execução, CI, deploy e recuperação
+### 5.1 Convenções
 
-Local: Node/npm e SDK .NET no host; SQL Server 2022 Developer em container suportado, volume persistente; API e SPA via HTTPS/proxy; fotos em volume privado. Confirmar arquitetura do host/imagens e requisitos de Docker antes de executar. Sem seed de senha fixa ou dados pessoais reais.
+Os contratos abaixo são desenho. Não são endpoints existentes. A especificação OpenAPI e os testes nascem na SDD e na implementação.
 
-CI futuro: restauração por lockfiles, lint/formatação, tipos/build Angular, build .NET com warnings analisados, unitários, integração SQL real e E2E; análise de vulnerabilidades/licenças e detecção de segredos. Credenciais R2 não ficam disponíveis a PRs não confiáveis; testes remotos rodam em contexto protegido com bucket de teste. Ferramentas e workflows só serão criados na etapa de implementação.
+- JSON em `/api/v1`, campos em camelCase, enums com nome estável e IDs em string. Empresa e ator vêm da sessão. Corpo, query e cabeçalho do cliente não escolhem a empresa.
+- Listas: `page`, `pageSize`, filtros permitidos e ordenação estável com ID no desempate. Envelope `items`, `page`, `pageSize` e `total`. Padrão técnico inicial de 20 itens, máximo de 100, sujeito a medição e sem ser SLO.
+- GET de entidade mutável devolve `ETag` opaco derivado de `rowversion`. PUT, DELETE e devolução exigem `If-Match`. Ausência: 428. Versão diferente: 412.
+- ProblemDetails com `status`, `title`, `code`, `traceId` e, quando couber, mapa `errors` por campo. Sem documento completo, senha, stack trace ou SQL.
+- 400 formato ou validação; 401 sessão ou token inválido; 403 política de autorização; 404 inexistente ou de outra empresa; 409 vínculo, disponibilidade, estado ou chave idempotente; 413 arquivo excedido; 415 mídia não aceita; 429 taxa do login ou, no registro, o limite que a SDD da F1 definir; 503 dependência indisponível. Criação 201 com `Location`; edição 200; exclusão lógica 204.
+- `Idempotency-Key` obrigatória na criação do aluguel e na devolução. Unicidade por empresa, ator e operação. O hash canônico do comando inclui o recurso e não inclui o JWT. A mesma chave com o mesmo comando devolve o resultado original. Outra entrada na mesma chave devolve 409. Guardar referência ao resultado, sem duplicar dado pessoal num cache de resposta.
+- Verificar replay idempotente antes do ETag corrente. Só operação nova exige a precondição atual. O registro idempotente e o efeito de negócio usam o mesmo commit. Timeout depois do commit resolve-se repetindo a mesma chave.
+- Não há cookie de autenticação e não há endpoint antiforgery. Rotas de negócio aceitam bearer. Login, refresh, consulta de sessão e logout usam o prefixo `/api/v1/session`. O registro público fica ao lado desse prefixo.
 
-Migrations versionadas/revisadas, aplicadas por job explícito com credencial de schema; API usa credencial sem permissão de migrar. Não executar migrations automaticamente em cada réplica. Partir de banco vazio na v1; não há legado informado. Dados de demonstração só sintéticos.
+Login, conforme DT-19: senha mínima de 8 caracteres; 5 requisições por minuto por IP, sem fila; bloqueio da conta por 15 minutos após 5 falhas. Resposta `429` quando a taxa do login estoura, com correlação e sem revelar se a conta existe. Credencial inválida ou bloqueio usam erro genérico. Considerar o IP só por cadeia de proxy confiável. Login, refresh e logout não são cacheáveis. Senha e token não entram em log.
 
-Hospedagem de produção, edição SQL licenciada, TLS, gestão de segredos e destino de logs estão pendentes. Antes do piloto conectado: testar backup/restore SQL e recuperação dos objetos referenciados. Antes de produção: aprovar frequência, retenção, criptografia, cópia independente, RPO/RTO e simular restauração conjunta, sem assumir que replicação do R2 substitui backup.
+O registro público tem rate limit obrigatório (DT-20). Os números do login não definem esse limite. A SDD da F1 escolhe limite, janela, identificação e mecanismo antes da implementação correspondente.
 
-Rollout futuro exige staging com migrations e matriz de aceite. Preferir mudanças de schema compatíveis em expansão/contração. Rollback de binário depende de compatibilidade com schema; migration destrutiva não tem reversão garantida. Quando necessário, parar escrita e restaurar SQL/objetos para ponto coordenado, com perda potencial avaliada contra RPO ainda não definido. Não prometer rollback sem ensaio.
+### 5.2 Catálogo de contratos
 
-## 8. Qualidade e verificação
-
-Esta seção descreve verificações futuras. Nenhum teste de aplicação foi executado nesta entrega documental.
-
-| Camada | Ferramenta | Cobertura exigida |
+| Rotas | Entradas e saídas principais | Regras |
 | --- | --- | --- |
-| Domínio | xUnit | RN-01–09, elegibilidade, preços mantidos/novos, CNH coerente e estados; relógio controlado |
-| Aplicação | xUnit e portas controladas | Orquestração, erros, gravação/auditoria atômicas e compensação de upload |
-| Integração | WebApplicationFactory + Testcontainers.MsSql | Migrations, Identity, sessão/revogação, constraints, rowversion, tenant, lock, replay e rollback |
-| Contrato | Testes HTTP/OpenAPI | DTOs, strings decimais, enums, datas/offset, erros, paginação, ETag, idempotência e endpoints de foto |
-| Frontend | Vitest/TestBed | Signals/zoneless, formulários, acessibilidade dos controles, interceptors e renovação coordenada |
-| Ponta a ponta | Playwright | J-01–J-05, dois tenants, logout/replay, teclado, foco/erros e demonstrativos |
-| Armazenamento | Adapter local + bucket R2 isolado | Arquivos inválidos, MIME, acesso negado, falha em PUT/GET/DELETE, órfãos e reinício do worker |
+| `POST /api/v1/registro` | username, email e password → empresa e conta criadas | Público, não autentica e não pede dado empresarial além do RF-01. Rate limit obrigatório, com parâmetros da SDD da F1. Username único na plataforma |
+| `POST /api/v1/session/login` | username e password → JWT, refresh opaco, expiração e dados mínimos | Erro genérico. Nova sessão absoluta de 8 horas. Aplica a DT-19. Resposta `no-store` |
+| `POST /api/v1/session/refresh` | refresh no corpo JSON → novo JWT e refresh rotacionado | O refresh não viaja em cookie nem em URL. Não depende de JWT ainda válido. Reúso revoga a família |
+| `GET /api/v1/session` | identidade mínima da conta e da empresa | Bearer, sessão ativa e versão de acesso conferida no SQL |
+| `POST /api/v1/session/logout` | bearer e sessão → 204 | Revoga sessão e família no SQL. Repetição segura. Apagar memória no cliente não é a revogação |
+| `/grupos`, `/planos`, `/veiculos` e `/{id}` | GET, POST, PUT e DELETE dos campos de RF-04 a RF-06, exceto o binário da foto na F2 | Planos condicionais por modalidade. Filtro `grupoId`. A F2 não recebe upload de foto |
+| `/clientes`, `/condutores` e `/{id}` | CRUD lógico com RF-08 e RF-09 | Discriminador PF/PJ, vínculo e CNH coerente. CPF e CNPJ validados localmente. Unicidade só entre ativos |
+| `/clientes/{id}/vinculos-pj` | consultar, adicionar e remover vínculos PF–PJ | Somente clientes compatíveis da mesma empresa |
+| `/taxas-servicos` e `/{id}` | CRUD lógico com nome, preço e modalidade | Bloqueio de edição e exclusão com aluguel aberto |
+| `GET/PUT /configuracoes/seguros/{tipo}` | preço diário por tipo, ou indicação de não configurado | Não criar preço implícito zero. Preço zero explícito é permitido |
+| `GET/PUT /configuracoes/combustiveis/{tipo}` | preço e vigência atribuída pelo servidor | PUT acrescenta versão vigente e não edita o passado |
+| `GET /alugueis` e `GET /alugueis/{id}` | listagem do RF-16, contrato e demonstrativo | Filtros de estado, veículo, período e inclusão explícita de ocultos |
+| `POST /alugueis/estimativas` | dados de contratação, sem saída editável → parcelas conhecidas | Não ocupa veículo. Informa que a criação recalcula |
+| `POST /alugueis` | cliente, condutor, veículo, plano, retorno previsto, hodômetro inicial, taxas e seguros → aberto | O servidor captura saída e preços. Exige idempotência |
+| `PUT /alugueis/{id}` | campos editáveis da contratação, sem saída, estado ou valor final → revisão atual | Só Em aberto, com ETag. Item mantido preserva preço; item novo usa o preço atual |
+| `POST /alugueis/{id}/devolucao/previa` | retorno real, hodômetro final, litros e taxas adicionais → cálculo proposto | Não conclui. Devolve as versões usadas |
+| `POST /alugueis/{id}/devolucao` | os mesmos dados e as versões aceitas na prévia → final | ETag e idempotência. Se preço ou configuração mudou, 409 e nova prévia |
+| `DELETE /alugueis/{id}` | sem body → ocultação lógica | Só concluído. Não apaga contrato |
+| `PUT/GET/DELETE /veiculos/{id}/foto` | multipart no upload, leitura binária e remoção lógica da referência | Somente na F5. Empresa da sessão e bloqueio se houver aluguel aberto. Nunca aceitar URL externa |
 
-### 8.1 Casos obrigatórios além do caminho feliz
+Os campos obrigatórios são os do PRD. A API não torna e-mail obrigatório no cliente, não acrescenta dado empresarial e não dispensa o condutor. Validade de CNH, CPF e CNPJ são validações dos dados informados, sem consulta oficial.
 
-- Todos os números de CA-07/08: 24h=1 diária, 24h+1min=2, duração zero=1; B Diário=500, Controlado=300, Livre=200; total 334 sem atraso e 354 com atraso; 1,005→1,01; caução separada. Testar multa com atraso sem aumento de D e zero reposição com tanque cheio.
-- Duas criações simultâneas por conexões/contexts separados: somente uma aceita; criação contra edição/exclusão de veículo, condutor ou taxa: nenhum estado inválido. Duas devoluções, edição contra conclusão e troca de veículo contra contratação concorrente.
-- Timeout depois de commit e retry com chave original; mesma chave/body diferente; replay após mudança de estado/ETag; falha entre salvar contrato, auditoria e resultado: rollback conjunto.
-- Copiar access token e refresh, executar logout e tentar reutilizar: negar ambos. Testar assinatura, issuer/audience, expiração, rotação e replay de família; falha de banco não autentica.
-- Empresas A/B usando IDs conhecidos, filtros históricos, referências aninhadas, uploads pendentes e GET de foto: nenhuma leitura ou escrita cruzada. Inspecionar logs para ausência de segredos/PII completa.
-- Mudança de preços e exclusão cadastral após conclusão não alteram demonstrativo. Combustível retroativo usa vigência correta; falta de preço não conclui; mudança entre prévia e confirmação exige nova prévia.
-- CNH expira no dia previsto, antes dele e depois da contratação; alteração de cliente PF não contorna bloqueio do condutor; devolução tardia é permitida apesar de vencimento superveniente.
-- Fotos corrompidas, excedidas, dimensões hostis e metadados; upload confirmado no R2 e falha SQL; veículo alugado durante upload; worker reiniciado; não expor objeto pendente ou removido.
-- Teclado completo em J-01–J-04, foco após erro/diálogo, rótulos/nome acessível, contraste, zoom e indicação de estimativa. Automação não substitui inspeção manual nem certifica acessibilidade.
+### 5.3 Contratação e devolução
 
-### 8.2 Plano de desempenho
+```mermaid
+sequenceDiagram
+    actor Adm as Administrador
+    participant UI as Angular
+    participant API as API e casos de uso
+    participant DB as SQL Server
+    Adm->>UI: Confirmar contratação
+    UI->>API: POST aluguel, bearer e Idempotency-Key
+    API->>DB: Reconsultar sessão, conta e versão; transação e lock da Empresa
+    API->>DB: Replay, vínculos, documentos, preços e disponibilidade
+    API->>DB: Inserir aberto, snapshots, estimativa, auditoria e resultado
+    DB-->>API: Commit, com o índice único protegendo o veículo
+    API-->>UI: 201, ETag e parcelas conhecidas
+    Adm->>UI: Informar devolução e aceitar a prévia
+    UI->>API: POST devolução, If-Match, chave e versões da prévia
+    API->>DB: Sessão, transação, lock, replay, estado e versões
+    API->>API: Calcular com preços e entradas validados
+    API->>DB: Final imutável, estado Concluído, auditoria e resultado
+    DB-->>API: Commit; o veículo deixa de ter aluguel aberto
+    API-->>UI: 200 e demonstrativo final
+```
 
-Em F5 levantar com representante de uso: número de empresas, frota/clientes/aluguéis por empresa, operadores simultâneos, volume/tamanho de fotos, picos, crescimento e hardware. Gerar dados sintéticos com distribuição correspondente e medir consulta paginada, contratação/devolução concorrentes, autorização com consulta de sessão e proxy de foto. Registrar metodologia, ambiente, percentis, erros, espera de locks, SQL e custo R2. Definir metas somente após revisão de produto/engenharia/operação. O lock por empresa e o proxy de imagens são pontos de atenção, não gargalos comprovados.
+Repetir a conclusão com a chave original devolve o resultado persistido. Outra chave em aluguel concluído gera conflito e não cobra de novo. Falha antes do commit não muda a disponibilidade. Comando concorrente de edição ou devolução perde por ETag ou por estado e não reabre o aluguel.
 
-## 9. Roadmap de implementação e gates
+### 5.4 Sessão no Angular
 
-Sem datas, duração ou equipe presumidas. Cada fase depende da anterior e dos gates indicados; os responsáveis abaixo são papéis propostos, ainda sem designação nominal. Toda implementação ocorre futuramente em feature branch, após especificações SDD revisadas/aprovadas, mantendo PRD/TDD e tarefas coerentes.
+O shell usa rotas, Signals, Signal Forms e guard de sessão. O guard resolve o estado antes de navegar e envia quem não está autenticado ao login. A API e os casos de uso é que autorizam.
 
-| Fase | Escopo/entregáveis e rastreabilidade | Pré-requisitos e critério de saída |
+O interceptor anexa o bearer só à API configurada. `401` leva à reautenticação definida na seção 6.2, sem renovar por cookie. `403` informa acesso negado e não prova rollback de um comando anterior. O logout revoga no servidor antes de limpar a memória. Se a rede falhar, a interface informa que a revogação remota não foi confirmada.
+
+Tentativa de negócio ainda incerta permanece só em memória, com a mesma chave e o mesmo conteúdo, bloqueio de navegação enquanto a tentativa não se resolver e aviso antes de sair. Recarga ou fechamento do navegador perde esse conteúdo. Não há sessão entre abas. O replay depois de novo login exige o mesmo ator e o mesmo comando.
+
+Formulários inválidos mostram mensagem textual e resumo focado. Campo inválido recebe `aria-invalid` e associação ao resumo. Testes automatizados de mensagem e foco não substituem avaliação manual de teclado e tecnologia assistiva, e não certificam acessibilidade.
+
+### 5.5 Fotos privadas
+
+Esta seção é o desenho que a F5 implementa. A F2 não envia, não lê e não remove foto. O veículo continua podendo ser gravado sem foto anexada. Bucket R2 sem domínio público. O SDK recebe o endpoint do R2 e a região aceita pelo SDK verificado na abertura da F5. Credencial mínima, limitada ao bucket, fica fora do navegador. O cliente não envia URL para a API buscar, para não abrir SSRF.
+
+1. Autorizar sessão e empresa e validar o ETag do veículo. Limitar o corpo a 5 MiB. Validar assinatura, dimensões positivas e o produto largura × altura até 16 milhões de pixels antes de alocar. Aceitar só JPEG e PNG estáticos. Rejeitar arquivo truncado, animação e formato divergente. Reencodar os pixels para remover EXIF e outros metadados. Limitar também a saída, a memória, o tempo e a concorrência do processamento. Reencodar não é antivírus.
+2. Criar registro pendente numa transação curta, com chave aleatória por empresa e upload. Pendência não é foto ativa e não aparece na listagem.
+3. Enviar a imagem saneada ao R2 fora da transação. Confirmar o objeto esperado. Retry usa a mesma chave, nunca o nome original nem um documento.
+4. Nova transação com o lock da empresa: revalidar veículo, ETag e ausência de aluguel aberto. Ativar a referência só depois que o objeto existir, atualizar a versão do veículo e auditar. Se o veículo foi alugado ou alterado durante o upload, não ativar e agendar compensação.
+5. Na substituição, tornar a referência anterior inacessível na API e registrar o trabalho de remoção. A exclusão física depende da política de retenção, que o PRD ainda não aprova. Não apagar objeto ainda necessário ao histórico. Falha ou reinício deixa pendência identificável.
+
+A compensação fica durável no SQL, com tentativas e remoção idempotente. Não há laço contínuo nem health check só para manter o SQL acordado. Pendências são retomadas na inicialização da API ou na operação seguinte. Limpeza não inclui objeto ativo. Falha final fica registrada e não some em silêncio. Backup e restauração conjuntos de referências e objetos continuam pendência da seção 9, sem meta numérica.
+
+A leitura é GET autenticado na API: sessão, `EmpresaId`, streaming do objeto esperado, MIME saneado, `nosniff` e `Cache-Control: private, no-store`. O Angular obtém o blob com o bearer e cria object URL temporária, revogada ao sair da tela ou no logout. `<img src>` direto não envia `Authorization`. Não persistir object URL, URL assinada nem URL pública. A URL gravada é relativa à API. Bucket e chave são metadados internos. Não redirecionar o navegador ao armazenamento.
+
+Se o R2 estiver indisponível, a foto falha ou mostra placeholder acessível. Consulta e locação que não precisam da imagem continuam. Upload fracassado preserva a foto ativa anterior. No local, a porta de armazenamento usa volume privado e o mesmo protocolo; isso não prova o R2. Prova em bucket isolado é critério da F5, sem criar conta nesta revisão.
+
+## 6. Segurança, operação e implantação
+
+| Ameaça | Defesa exigida |
+| --- | --- |
+| Acesso entre empresas | Tenant obrigatório, FKs compostas, guarda de escrita e foto privada. Testes A/B em leitura, escrita, IDs relacionados, histórico e foto |
+| Filtro de exclusão contornado | Consulta histórica tira só o soft-delete e mantém `EmpresaId`. Revisar SQL direto e filtro ignorado |
+| Roubo de bearer ou refresh | TLS, memória apenas, sem armazenamento do browser, CSP compatível com Angular e sessão revogável. Reúso do refresh revoga a família |
+| Abuso de login | DT-19: senha mínima de 8, bloqueio de 15 minutos após 5 falhas, 5 requisições por minuto por IP, erro genérico e `429` |
+| Abuso do registro público | DT-20: rate limit obrigatório. Parâmetros na SDD da F1, diferentes dos números do login enquanto a SDD não os escolher |
+| Upload malicioso | 5 MiB, 16 megapixels, decode restrito, reencode, processamento limitado e sem executar o conteúdo. Fase F5 |
+| Dado pessoal em telemetria | Sem corpo de login ou cadastro, `Authorization`, documento completo ou query sensível. Log por ID técnico |
+| Histórico alterado ou corrida | Snapshot, final imutável, auditoria transacional, ETag e lock. Testes com conexões independentes |
+
+`EmpresaId` vem da identidade validada e da sessão, não de cabeçalho livre. A guarda de `SaveChanges` rejeita entidade de outra empresa. Filtro de consulta não basta para attach, update ou SQL bruto. Registro e sessão não ganham endpoint administrativo genérico. Segredo de R2 e chave de assinatura não saem para o Angular.
+
+Auditoria crítica vai na mesma transação: empresa, ator, momento, ação, entidade, ID e correlação. Registrar categoria e campo alterados, não documento nem senha. Respostas de `/api` não são cache de dado privado. Falha genérica não expõe stack trace. Logs de `ILogger` trazem `traceId`, rota parametrizada, duração, status, falha de dependência, conflito e retry, sem body e sem token.
+
+Health é de processo. Não há consulta contínua ao SQL para mantê-lo acordado, porque a oferta-alvo usa AutoPause. Indisponibilidade de foto não é indisponibilidade de toda a operação. Não há Serilog nem serviço pago de telemetria como dependência desta v1. Metas numéricas de latência e disponibilidade não estão aprovadas.
+
+### 6.1 Arquitetura de publicação gratuita
+
+Esta seção é o alvo da F6. Nenhum recurso foi provisionado ou testado nesta revisão.
+
+- **Frontend:** SPA Angular no Static Web Apps Free, no domínio HTTPS atribuído pelo serviço. Fallback só para a SPA. A URL-base da API é configuração pública, sem segredo.
+- **Backend:** monólito no App Service Linux F1, com preferência por East US, chamado diretamente no domínio HTTPS atribuído ao app, em `/api/v1`. Verificar oferta, região, runtime, memória e binários nativos do processamento de imagem antes de criar. Se não couber, parar e revisar, sem plano pago automático.
+- **Banco:** Azure SQL na oferta gratuita, com `useFreeLimit=true` e `freeLimitExhaustionBehavior=AutoPause`. Nunca `BillOverUsage`. Confirmar elegibilidade na conta. Enquanto a cota pausar o banco, ele fica indisponível. Não usar VM nem camada paga como substituto silencioso.
+- **Fotos:** R2 privado no caminho da F5. O App Service acessa o objeto. O navegador não acessa o bucket. Franquia de provedor não é trava automática de cobrança.
+
+O navegador carrega a SPA e chama a API com `Authorization: Bearer`, sem cookie. CORS da aplicação lista as origens exatas, com `OPTIONS` e os métodos e cabeçalhos necessários, entre eles `Authorization`, `Content-Type`, `Idempotency-Key` e `If-Match`. Sem `AllowAnyOrigin`, sem curinga de preview e sem `AllowCredentials`.
+
+Vincular a API ao Static Web Apps para proxy na mesma origem exigiria plano pago. BFF e outro proxy pago também ficam de fora. Se a oferta gratuita não for viável na conta, a publicação para e a decisão é revista.
+
+O App Service no plano F1 compartilha CPU, memória e banda e pode suspender ou reiniciar. O Azure SQL gratuito pode pausar por inatividade ou por esgotamento da cota. Validar JWT consulta o SQL e o processamento de imagem consome recurso. Não criar keep-alive, health check contínuo nem job em laço para manter serviço acordado. A compensação de fotos é durável e retomável, sem worker sempre ativo.
+
+Antes de publicar, revisar o que a oferta realmente inclui: telemetria, log, segredo, rede, migration e transferência. Não acrescentar serviço cobrado como dependência silenciosa. Alerta de orçamento não é teto de cobrança. Esta arquitetura não autoriza compra de domínio, plano pago nem crédito promocional como solução permanente. O PRD não aprova RPO, RTO, retenção numérica nem SLO; a F6 não os inventa.
+
+**Acesso:** identidade gerenciada do App Service para o Azure SQL, com permissão mínima de execução. Migration fora de Development usa procedimento e credencial separados. O runtime não recebe DDL por conveniência. Credencial do R2 e chaves JWT versionadas ficam em App Settings, não na SPA, no repositório ou em log. O SQL não guarda o valor da chave JWT.
+
+**Ainda por verificar na F6, sem estar em aberto como escolha de topologia:** oferta Linux F1, preferência East US, SQL gratuito na assinatura e runtime das dependências nativas. Se a conta não permitir o plano sem custo, parar e revisar. URL, nome de recurso, segredo e patch são materialização futura.
+
+### 6.2 JWTs revogáveis e sessão no servidor
+
+Identity valida senha, hash, bloqueio e normalização. A emissão do JWT é contrato próprio. Bearer proprietário do Identity não é este JWT. Usar biblioteca oficial, incluindo `Microsoft.AspNetCore.Authentication.JwtBearer`, na versão compatível verificada na seção 2.1.
+
+Assinatura HS256, acesso de 15 minutos e tolerância de relógio de 30 segundos. Emissor e audiência são fixos por ambiente. Claims mínimas: `sub`, `sid`, `jti`, `iat`, `exp`, versão de acesso e `empresaId`. A claim `empresaId` é preenchida no servidor a partir da conta e da sessão. Não colocar documento, senha ou dado de cliente no token. Aceitar só HS256. Rejeitar `none`, algoritmo alternativo, assinatura, emissor, audiência ou tempo inválidos, e `kid` ausente ou desconhecido. Resolver `kid` só no mapa local autorizado, nunca por URL ou chave enviada pelo cliente. O JWT é assinado, não cifrado.
+
+Cada versão de chave tem 32 bytes de `RandomNumberGenerator`, em Base64 na configuração externa, decodificados para bytes antes de `SymmetricSecurityKey`. Não usar os bytes UTF-8 do texto Base64 como chave, nem senha textual. Uma versão ativa assina tokens novos. Versões anteriores só validam os já emitidos. A rotação de 90 dias é procedimento, não job: preservar a chave anterior até expirar o último JWT dela, mais a tolerância de 30 segundos. Não reutilizar o identificador com outra chave e não gerar chave nova a cada inicialização. Comprometimento retira a chave e revoga as sessões afetadas. Quem tem o segredo pode emitir e validar; a chave não vai para a SPA, não é publicada em JWKS e não é compartilhada só para terceiros validarem.
+
+`SessaoAutenticacao` no SQL guarda ID, usuário, empresa, versão de acesso, criação, expiração absoluta e revogação. Depois de validar o JWT, cada requisição protegida reconsulta sessão, conta e versão, sem cache permissivo. Logout revoga no servidor. Troca de senha ou desativação da conta revoga as sessões daquele usuário junto da auditoria. O JWT deixa de valer na próxima requisição depois do commit, não só quando o relógio expira. Requisição já autorizada não é desfeita. SQL indisponível falha fechado, sem aceitar só a assinatura.
+
+A sessão e a família duram 8 horas a partir do login, sem extensão deslizante. O refresh é opaco, de alta entropia, só em memória no cliente e só como hash no SQL, ligado à sessão, à família, à validade e ao estado de uso. A renovação confere conta, sessão e versão, consome o refresh e emite outro na mesma transação. Cada JWT termina no menor prazo entre 15 minutos e o fim das 8 horas. Reúso de refresh consumido revoga a família. O cliente serializa uma renovação por vez na aba atual. Se a resposta se perder, reautenticar, em vez de repetir o refresh ou o comando de negócio às cegas. Não há sessão entre abas. Recarga exige novo login.
+
+Contratos: `POST /api/v1/session/login`, `POST /api/v1/session/refresh` com o refresh no corpo JSON, `GET /api/v1/session` e `POST /api/v1/session/logout`. Respostas `no-store`. Erros sem enumerar conta, sem refletir token e sem refletir senha. O refresh prova o segredo opaco e a sessão válida; não depende de JWT ainda não expirado. Limitar abuso do refresh sem fila e sem recuperação automática de conta.
+
+CORS não impede cliente que não seja o navegador. A API aplica JWT, sessão e tenant em qualquer origem. Testar assinatura, emissor, audiência, expiração, `kid`, revogação, reúso de refresh, recarga sem sessão, preflight entre as duas origens e SQL indisponível. Repetir a superfície real na F6, antes de tratar a publicação como concluída.
+
+### 6.3 Configuração, Compose e inicialização local
+
+Parâmetros não sensíveis ficam em `appsettings.json` e `appsettings.{Environment}.json`: fuso, moeda, limites de imagem, origens públicas, emissor, audiência e identificador da versão ativa do JWT. Sem senha, sem valor de chave e sem segredo do R2. O nome do ambiente não protege segredo.
+
+Em Development, User Secrets guardam a conexão local, inclusive a conta administrativa do SQL Developer, e os valores `Autenticacao:Jwt:Chaves:<versao>` em Base64. Fora do repositório e fora do pacote. Testes e CI recebem configuração explícita do processo e não carregam User Secrets pessoais. Na publicação, App Settings e variáveis de ambiente sobrescrevem o JSON. A precedência é a do .NET: JSON base, JSON do ambiente, User Secrets só em Development, variáveis de ambiente e então argumentos. Não passar segredo por argumento ou histórico de shell. Hierarquia com `:` na configuração e `__` no ambiente.
+
+A versão ativa do JWT aponta para uma entrada existente. O valor secreto decodifica para exatamente 32 bytes. Validar o mapa antes de servir. Sem chave padrão, sem geração automática e sem fallback. Testes usam material próprio.
+
+**Compose (DT-18):** `compose.yml` na raiz, criado na F1, só para infraestrutura. SQL Server Developer, rede local, volume nomeado e healthcheck. API, Angular, testes e depurador ficam no host. Não criar, neste desenho, Dockerfile da API ou do frontend, proxy, Redis ou emulador de objeto. Na F5, testes locais usam o volume privado; o contrato real usa bucket R2 isolado. O Compose não publica a aplicação e não equivale ao Azure SQL. Este documento não criou o arquivo, não baixou imagem e não executou container.
+
+A imagem é a oficial do SQL Server 2022 em Linux, edição Developer para desenvolvimento e teste, com tag ou digest fixados na F1 depois de verificar o provider. Não permanecer em `latest`. Suporte documentado em x86-64; se o host não atender, interromper e revisar, sem trocar o banco. Publicar a porta só em `127.0.0.1`. A API no host usa esse endereço, não o nome interno do serviço para atravessar a rede. Volume de desenvolvimento sobrevive a reinício. Não apagar volume para contornar falha de migration. Healthcheck consulta o SQL com timeout finito e sem senha no YAML, no comando ou no log. Container em execução não significa schema aplicado.
+
+O Compose não lê User Secrets. A senha exigida pela imagem entra no processo do Compose sem valor literal no arquivo, em `.env` versionado ou em log. Em Development, a API usa a conta administrativa local a partir de User Secrets para `Database.MigrateAsync()` criar o catálogo ausente e aplicar o schema. Testing e publicação não reutilizam essa credencial.
+
+**Ordem em Development:** validar ambiente, conexão, chaves JWT e origens, sem imprimir segredo; subir o SQL e esperar o healthcheck; iniciar a API no host; executar `Database.MigrateAsync()`; só depois aceitar HTTP. Não há seed de funcionários entre a migration e o tráfego. A primeira empresa nasce no `POST /api/v1/registro`. Falha de conexão, configuração ou migration interrompe a inicialização. Não usar `EnsureCreated` nem migration destrutiva como fallback. Fora de Development, a API não aplica migration. Testing prepara o banco pela fixture, em instância ou catálogo isolado, sem User Secrets pessoais e sem o volume de Development. Publicação aplica migrations em etapa controlada, com credencial de schema, e o runtime segue sem DDL.
+
+O fluxo local ainda não foi executado. Evidência de Compose, healthcheck, persistência e ausência de segredo só entra no checklist da F1 depois da execução.
+
+## 7. Qualidade e verificação
+
+A matriz é plano. Nenhum teste de aplicação foi executado nesta revisão. Resultados só podem ser registrados depois da execução, com data, comandos, ambiente, resultado e limitação. CI não está presumida e não substitui a verificação local.
+
+| Nível | Verificações mínimas |
+| --- | --- |
+| Unidade — MSTest | RN-01 a RN-09, elegibilidade, preço mantido e preço novo, CNH coerente, estados do aluguel e relógio controlado |
+| Aplicação — MSTest | Orquestração, erros, auditoria atômica e compensação de upload com portas controladas |
+| Integração — MSTest, `WebApplicationFactory` e SQL Server real | Migrations, Identity, sessão e revogação, constraints, `rowversion`, tenant, lock, replay e rollback. Sem SQLite, EF InMemory ou Testcontainers |
+| Contrato HTTP | DTOs, decimais em string, enums, datas com offset, ProblemDetails, paginação, ETag, idempotência, OpenAPI e, na F5, foto |
+| UI — Vitest | Signal Forms, Signals, zoneless, acessibilidade dos controles, interceptor restrito à API, ausência de persistência no browser e reautenticação |
+| Ponta a ponta — Playwright | J-01 a J-05, duas empresas, logout e reúso, duas origens locais, teclado, foco, erros e demonstrativos. Fotos na F5. Publicação na F6 |
+| Armazenamento — F5 | Adapter local e bucket R2 isolado: arquivo inválido, MIME, acesso negado, falha de escrita e leitura, órfão e retomada sem laço de keep-alive |
+
+Critérios de gate ao longo das fases: nenhum segundo aluguel aberto, nenhum acesso entre empresas, demonstrativo final estável, revogação efetiva de JWT e refresh, e foto privada só da empresa da sessão. Não há p95, RPO, RTO ou percentual de cobertura aprovados para declarar sucesso.
+
+### 7.1 Cenários obrigatórios
+
+- Números de CA-07 e CA-08: 24 h = 1 diária; 24 h e 1 min = 2; duração zero = 1. Diário com `B = 500`, Controlado com `B = 300`, Livre com `B = 200`. Total 334 sem atraso e 354 com atraso. `1,005` arredonda para `1,01`. Caução separada. Multa com atraso sem aumento de `D`. Tanque cheio gera reposição zero.
+- Duas criações simultâneas, em conexões separadas, para o mesmo veículo: só uma é aceita. Criação contra edição ou exclusão de veículo, condutor ou taxa não deixa estado inválido. Duas devoluções, edição contra conclusão e troca de veículo contra contratação concorrente.
+- Timeout depois do commit e retry com a chave original. Mesma chave com corpo diferente. Replay depois de mudança de estado ou ETag. Falha entre contrato, auditoria e resultado: rollback conjunto.
+- Copiar access token e refresh, fazer logout e reutilizar: ambos negados. Assinatura, emissor, audiência, expiração, `kid`, rotação e reúso da família. Recarga não restaura sessão. SQL indisponível não autentica.
+- Empresas A e B, com IDs conhecidos, filtros históricos, referências aninhadas e, na F5, foto: nenhuma leitura ou escrita cruzada. Logs sem segredo e sem documento completo.
+- Mudança de preço ou exclusão de cadastro depois da conclusão não altera o demonstrativo. Combustível retroativo usa a vigência correta. Falta de preço não conclui. Mudança entre prévia e confirmação exige nova prévia. Placa, CPF ou CNPJ de registro excluído podem ser usados num registro novo, que não herda os contratos do registro original.
+- CNH expira no dia previsto, antes dele e depois da contratação. Alteração de cliente PF não contorna o bloqueio do condutor. Devolução tardia é permitida apesar de vencimento posterior à contratação.
+- Na F5: arquivo corrompido, excedido, dimensão hostil e metadados. Upload confirmado no armazenamento e falha no SQL. Veículo alugado durante o upload. Retomada de pendência. Objeto pendente ou removido não é exposto. Veículo sem foto continua gravável.
+- Hodômetro final menor que o inicial, litros fora da capacidade e retorno anterior à saída são rejeitados. Devolução válida conclui e libera o veículo; repetição não duplica o fechamento; falha não libera o veículo com o aluguel ainda aberto (CA-09).
+- Teclado em J-01, J-02, J-03 e J-04, foco depois de erro, rótulo, contraste, zoom e distinção entre estimativa e final. Automação não substitui inspeção manual e não certifica acessibilidade.
+- Rate limit do registro, com os parâmetros da SDD da F1, e rate limit do login, com os números da DT-19. Um não é evidência do outro.
+
+Não há, neste documento, meta numérica de desempenho para preencher. Volume, concorrência e latência continuam dependentes de contexto que o PRD não aprovou. Medir só depois de haver ambiente e pergunta de produto, e não copiar número de outro sistema. O lock por empresa e o proxy de imagem são pontos de atenção, não gargalos já medidos.
+
+## 8. Roadmap de implementação
+
+Seis fases, sem fase zero. Preparar este documento não é fase de produto. Não há prazo nem equipe presumidos. Cada fase futura nasce em feature branch a partir da `main`. A change da F1 segue o workflow `spec-driven`: proposal, specs, design e tasks antes do código. Da F2 em diante, as changes seguem o schema `prototype-first`, no mesmo momento em que o Gestão de Estacionamento o adotou na segunda fase: proposal, specs, protótipo quando houver tela, design e tasks antes do código. Evidência e checklist só depois da verificação. No fechamento, sync e archive. O arquivo `openspec/config.yaml` declara `spec-driven`, e o schema `prototype-first` ainda não foi instalado. Esta revisão não altera esse arquivo nem cria change. A instalação do schema e a atualização do `openspec/config.yaml` acompanham a abertura da F2.
+
+CI é mudança própria. Não há workflow presumido em nenhuma fase. Nenhum `docs/fases/` é criado aqui.
+
+A tabela usa **☐ não concluído / ☑ concluído**. Todos os itens nascem desmarcados. Atualizar um indicador só depois de concluir o item e executar a verificação. Na evidência, registrar data, comandos, ambiente, resultado e limitação. Se uma regressão invalidar o critério, desmarcar e justificar. A fase só termina com todos os itens e o critério de saída. Nenhum subconjunto anterior à F5 pode ser anunciado como v1 pronta. A F5 não é versão futura.
+
+| Fase | Escopo e entregáveis | Dependência / critério de saída | Checklist de conclusão e evidências |
+| --- | --- | --- | --- |
+| **F1 — Fundação e infraestrutura local** | Solução em `app/`, Compose só de SQL, User Secrets, duas origens, registro da empresa, sessão da seção 6.2, CORS, tenant, rate limit obrigatório do registro com parâmetros definidos na SDD, MSTest e migrations só em Development. RF-01 a RF-03 e CA-01. Sem foto, sem CI e sem Azure. | **Início da implementação.** CA-01 em SQL Server real, inclusive revogação depois do logout, falha fechada e empresas A/B. Nenhuma migration automática fora de Development. O registro não entra sem o rate limit especificado na SDD. | ☐ **F1-01:** camadas, compatibilidade da seção 2.1 e lockfiles.<br>☐ **F1-02:** `compose.yml` de infraestrutura, healthcheck, volume, porta em loopback e separação de teste; API e Angular no host.<br>☐ **F1-03:** User Secrets em Development, arquivos versionados sem segredo e chaves JWT de 32 bytes.<br>☐ **F1-04:** `POST /api/v1/registro` atômico e rate limit com limite, janela, identificação e mecanismo escolhidos na SDD.<br>☐ **F1-05:** login, refresh no corpo, consulta e logout; 15 minutos, 8 horas, memória, sem cookie e sem sessão após recarga.<br>☐ **F1-06:** CORS por origem exata, sem `AllowAnyOrigin` e sem `AllowCredentials`.<br>☐ **F1-07:** `EmpresaId` resolvido no servidor.<br>☐ **F1-08:** MSTest, `WebApplicationFactory` e SQL Server real; `MigrateAsync` só em Development.<br>☐ **F1-09:** CA-01, reúso após logout e SQL indisponível.<br>**Evidências/limitações:** a registrar depois da execução, com data, comandos, ambiente, resultado e limitação. |
+| **F2 — Cadastros** | Grupos, três planos, dados do veículo, PF e PJ, condutores, vínculos, taxas, dois seguros (RF-12) e combustíveis por vigência. Jornada J-02. Sem upload nem gerenciamento de foto. Unicidade filtrada aos ativos. | **Depende da F1.** CA-02 a CA-05 no que não exige aluguel. Bloqueio por aluguel aberto prova-se quando o contrato existir. Veículo grava sem foto. | ☐ **F2-01:** grupos e modalidades Diário, Controlado e Livre.<br>☐ **F2-02:** dados do veículo, sem rota de foto.<br>☐ **F2-03:** clientes, vínculos, condutores e CNH coerente.<br>☐ **F2-04:** taxas, seguros e combustível append-only.<br>☐ **F2-05:** placa, CPF e CNPJ únicos só entre ativos; registro novo não herda o histórico do excluído.<br>☐ **F2-06:** listas, erros de campo e Signal Forms dos cadastros.<br>**Evidências/limitações:** a registrar depois da execução, com data, comandos, ambiente, resultado e limitação. |
+| **F3 — Contratação e cálculo** | Cálculo, snapshots, estimativa, criação e edição de Em aberto, disponibilidade e idempotência. Jornada J-03. RN-01 a RN-06 e RN-09 na contratação. | **Depende da F2.** CA-06 e CA-07. Um aluguel aberto por veículo. Preço mantido preservado. Sem devolução final, sem foto e sem publicação. | ☐ **F3-01:** RN-01 a RN-06, caução separada e estimativa incompleta quando couber.<br>☐ **F3-02:** contratação atômica, índice de veículo aberto e idempotência.<br>☐ **F3-03:** edição com preço mantido e preço novo; saída imutável.<br>☐ **F3-04:** snapshots e bloqueio de cadastro com aluguel aberto.<br>☐ **F3-05:** CA-06 e CA-07, inclusive concorrência.<br>**Evidências/limitações:** a registrar depois da execução, com data, comandos, ambiente, resultado e limitação. |
+| **F4 — Devolução e operação local** | Prévia, fechamento, multa, combustível, histórico, ocultação e jornadas locais. RN-01 a RN-09. | **Depende da F3.** CA-08, CA-09 e CA-12 no ambiente local. Final imutável. Sem foto e sem publicação. Esta fase não é a v1 pronta. | ☐ **F4-01:** prévia e devolução atômicas.<br>☐ **F4-02:** multa, combustível vigente e componentes de CA-08.<br>☐ **F4-03:** demonstrativo final imutável e ocultação sem apagar contrato.<br>☐ **F4-04:** CA-09 e CA-12.<br>☐ **F4-05:** J-01 a J-05 por teclado no local, sem foto.<br>**Evidências/limitações:** a registrar depois da execução, com data, comandos, ambiente, resultado e limitação. |
+| **F5 — Fotos dos veículos** | Funcionalidade obrigatória da v1: armazenamento, envio, acesso, segurança e integração ao cadastro, pelo desenho da seção 5.5. JPEG e PNG, 5 MiB e 16 megapixels. | **Depende do cadastro de veículos da F2, não do cálculo nem da devolução.** CA-03 na parte da foto e o isolamento de foto de CA-01. O veículo ainda pode ser gravado sem arquivo. Sem publicação Azure. | ☐ **F5-01:** proxy da API, bucket privado e volume local, sem URL pública.<br>☐ **F5-02:** limites, reencode sem metadados e processamento limitado.<br>☐ **F5-03:** leitura só da empresa da sessão, integrada ao veículo.<br>☐ **F5-04:** gravar veículo sem foto continua válido.<br>☐ **F5-05:** compensação retomável, sem I/O externo dentro da transação SQL e sem keep-alive.<br>☐ **F5-06:** falha de armazenamento não conclui locação que não precise da imagem.<br>**Evidências/limitações:** a registrar depois da execução, com data, comandos, ambiente, resultado e limitação. |
+| **F6 — Homologação e publicação gratuita** | Arquitetura-alvo da seção 6.1. Homologar na oferta gratuita e publicar sem plano pago. | **Depende da F4 e da F5.** Oferta verificada antes de criar recurso. CORS, JWT e identidade gerenciada exercitados na superfície real. Sem recuperação de conta, sem SLO inventado e sem plano pago. Se a oferta não couber, parar e revisar. | ☐ **F6-01:** confirmar a oferta gratuita; não criar recurso se ela não couber.<br>☐ **F6-02:** Static Web Apps Free, App Service Linux F1 com preferência East US e chamada HTTPS direta, sem BFF e sem proxy pago.<br>☐ **F6-03:** Azure SQL com `useFreeLimit=true` e AutoPause, nunca `BillOverUsage`; runtime sem migration automática.<br>☐ **F6-04:** identidade gerenciada, App Settings e pacote sem segredo.<br>☐ **F6-05:** jornadas da v1, inclusive foto, na superfície gratuita, sem recuperação de conta e sem meta numérica inventada.<br>**Evidências/limitações:** a registrar depois da execução, com data, comandos, ambiente, resultado e limitação. Nenhum recurso está provisionado neste documento. |
+
+PRs de implementação serão pequenos, na feature branch da fase, para a `main`, com o template do repositório e com RF, RNF, DT, fase e tarefas reais. Este documento não abre PR.
+
+## 9. Riscos e verificações futuras
+
+| Item | Situação | Condição de resolução |
 | --- | --- | --- |
-| F0 — Preparação e SDD | Revisão deste TDD; matriz exata de Angular 22/Node 24/TS6/Tailwind/.NET10/EF10; licenças/native assets SkiaSharp e SDK S3; especificações/tarefas OpenSpec rastreadas; estrutura futura e CI desenhados. DT-01–15 | PRD validado; revisar TDD por `question`; verificar CLI OpenSpec/configuração e ferramentas, sem presumir disponibilidade. Engenharia valida compatibilidade com build/test spike somente quando implementação for autorizada. Specs aprovadas antes de código |
-| F1 — Fundação segura | Projetos em app/, migrations iniciais, contexto de empresa, registro/Identity/JWT/refresh/CSRF/logout, auditoria e infra de testes. RF-01–03; RNF-01–03/05; DT-03–07/10/14–15 | F0 concluída. CA-01 passa, inclusive replay após logout e empresas A/B; CI executa SQL real; nenhum dado de empresa pode ser escrito fora do protocolo |
-| F2 — Cadastros e configurações | Grupos/planos, veículos, PF/PJ/condutores/vínculos, taxas/seguros/combustíveis versionados; adapter privado de fotos e compensação. RF-04–13/19; DT-08/10–13 | F1. CA-02–05 e bloqueios pertinentes de CA-10; imagens inválidas e corridas rejeitadas; snapshots previstos no schema e teste de migração de banco vazio |
-| F3 — Contratação e cálculo | Serviço de cálculo, snapshots/revisões, estimativas e criação/edição de aberto, disponibilidade/idempotência. RF-14–16/18; RN-01–06/09; DT-08–10/13 | F2. CA-06/07 e preços preservados; testes numéricos e concorrentes passam; ocupação deriva do contrato, sem dupla locação |
-| F4 — Devolução e v1 completa/P0 | Prévia/fechamento final, multa/combustível, histórico/ocultação, UI acessível e todas as jornadas. RF-17–19; RN-01–09; RNF-01–07 | F3. CA-01–12 verificados e evidenciados; final imutável, retries seguros, histórico legível e teclado. **P0 é v1 funcional completa em ambiente de teste**, não liberação operacional |
-| F5 — P1/piloto controlado | R2 real em bucket segregado, observabilidade, ensaio SQL+objetos de backup/restore, carga medida e validação com administrador real. DT-11/12/15; RNF-04–07 | F4; responsáveis e ambiente de piloto definidos. Validação R2/SkiaSharp no runtime alvo; política de limpeza, proteção de dados e recuperação adequada ao piloto. Se gás for usado, resolver unidade antes; sem isso não autorizar esse uso. Registrar limites e metas propostas |
-| F6 — Produção | Hospedagem/licença, TLS/segredos, retenção, recuperação de conta, RPO/RTO/SLO, monitoramento e runbooks; migrations/rollout/rollback ensaiados | F5; gates operacionais aprovados por produto/segurança/operação designados. Sem metas ou procedimentos pendentes tratados como cumpridos. Revisões/checks/PR exigidos pelo AGENTS; merge somente autorizado e via PR |
+| Patches, Node e lockfiles | Não bloqueiam este desenho. Bloqueiam código que dependa de compatibilidade ainda não verificada | Seção 2.1, na abertura da implementação. Sem copiar versão de outro repositório |
+| Rate limit do registro | A proteção é obrigatória e os parâmetros não foram escolhidos | SDD da F1 define limite, janela, identificação e mecanismo, e a F1 só fecha com essa proteção verificada |
+| Oferta gratuita | Topologia definida e nenhum recurso criado | F6 confirma a conta. Se não couber, parar e revisar, sem plano pago automático |
+| R2 e binários nativos | Provedor escolhido para a F5. Sem conta, bucket ou credencial verificados. Suporte do SDK e do SkiaSharp no runtime-alvo ainda não foi ensaiado | F5, em bucket isolado, antes de tratar a foto como pronta |
+| Serialização por empresa | Trade-off de consistência no início local | Medir só quando houver contexto aprovado. Mudar a granularidade mantendo testes de corrida e índices |
+| Sessão com JWT próprio | Toda requisição protegida consulta o SQL | Testes da seção 6.2. Provedor externo de identidade não faz parte da v1 |
+| Credencial única | Perda da senha pode bloquear a empresa. O PRD, seção 5.2, deixa a recuperação de senha fora dos fluxos da v1 | Tratar como risco operacional. Não é entrega da F6. Funcionalidade nova exigiria revisão do PRD |
+| Retenção | Sem prazo aprovado. Preservar histórico não autoriza retenção indefinida | Produto, privacidade e operação, antes de uso real. Sem expurgo automático enquanto não houver política |
+| Idempotência e refresh consumido | Limpeza cedo demais duplica comando ou perde a detecção de reúso | Manter o necessário até a política de retenção. Refresh consumido permanece pelo menos até o fim da família |
+| Gás em litros | A fórmula aprovada usa litros. Uso real com gás não está validado | Especialista de domínio a designar. Não converter para metro cúbico neste TDD |
+| Validação com administrador real | Não realizada | Antes de uso operacional, com as jornadas J-01 a J-05. Mudança de regra volta ao PRD. Não é critério da F5 nem entrega nova da F6 |
+| Carga, disponibilidade, backup e recuperação | O PRD não aprova volume, latência, disponibilidade, RPO, RTO nem número de cópias | Não preencher com meta de outro produto. Definir contexto antes de compromisso. Não viram entrega numérica da F6 |
+| Limites de texto | Tamanhos ainda dependem de amostras válidas | SDD, sem omitir campo do PRD e sem recusar dado válido em silêncio |
+| Schema OpenSpec | `openspec/config.yaml` permanece em `spec-driven` na F1. `prototype-first` não está instalado | Instalação e seleção do schema na abertura da F2, junto da segunda change |
+| Frase do PRD sobre preparação sem Git | O PRD ainda diz que a preparação ocorreu sem repositório | Permanece no PRD. Este TDD não o edita e registra o documento na `main` |
 
-PRs de implementação devem ser pequenos e coesos, usar o template do repositório e apontar RF/RNF, DT, fase e tarefas SDD reais. A criação/atualização de PR ocorrerá somente no fluxo aplicável, não nesta geração documental. Cada incremento informa limites; nenhum subset de F1–F3 pode ser anunciado como v1 pronta.
+Observabilidade, ensaio de backup, carga e validação com administrador deixam de definir a fase das fotos. Continuam pendências desta seção quando já eram condição anterior a uso real. Não recebem número de RPO, RTO ou percentil.
 
-## 10. Riscos, alternativas e pendências
+### 9.1 Decisões que esta revisão encerra
 
-| Item | Estado/impacto | Condição de resolução e responsável proposto |
-| --- | --- | --- |
-| Matriz exata e patches | Não bloqueia este desenho; bloqueia código dependente de compatibilidade não verificada | Engenharia em F0 fixa versões, analisa licenças/vulnerabilidades e testa ferramentas sem contornar peer dependencies |
-| Cloudflare R2 | Dependência externa aprovada; sem conta/bucket/credenciais verificados | Engenharia/operação autorizam provisionamento separado e executam contrato em bucket de teste antes do piloto |
-| SDK S3 e native assets | Exemplo oficial R2 consultado usa SDK .NET v3; não é prova de suporte de qualquer patch/futuro SDK | Engenharia escolhe release suportado e testa PUT/GET/DELETE no .NET10/SO alvo; SkiaSharp precisa de ensaio de decode/encode e limites |
-| Serialização por empresa | Trade-off de simplicidade/consistência versus throughput | Medir em F5; se necessário mudar granularidade mantendo testes de corrida e índices; não trocar por validação apenas em memória |
-| Sessão JWT própria | Complexidade adicional e acesso SQL em cada requisição | Testes de assinatura/rotação/logout, revisão de segurança e monitoramento; fornecedor OIDC seria alternativa futura, não parte do escopo |
-| Recuperação de conta única | Herdado do PRD; risco de bloqueio operacional | Produto/segurança/operação definem procedimento seguro antes de produção; funcionalidade nova exige revisão do PRD |
-| Retenção SQL, auditoria e fotos | Sem prazo aprovado; preservar histórico não autoriza retenção indefinida | Produto/privacidade/operação definem base, prazos, atendimento e expurgo; não executar purge automático sem política |
-| Idempotência e refresh consumidos | Limpeza prematura permite duplicação ou perde detecção de replay | Manter dados necessários até política aprovada; refresh consumidos pelo menos até fim da família; registros de conclusão preservam vínculo ao resultado |
-| Gás em litros | Herdado; impede uso real com gás sem validação | Especialista de domínio a designar confirma unidade ou solicita revisão do PRD; não converter para m³ neste TDD |
-| Validação com usuários reais | Não realizada; fluxo operacional pode precisar de ajuste | Produto e representante real em F5 validam J-01–05; mudanças de regra voltam ao PRD |
-| Escala/SLO/RPO/RTO | Não há números aprovados | Produto/engenharia/operação levantam carga, medem e pactuam antes de compromissos de produção |
-| Hospedagem/licença/backup | Só local foi escolhido; SQL Developer não libera produção | Operação define ambiente licenciado, custo, cópia independente R2 e restore coordenado antes de F6 |
-| Limites de campos e abuso | Tamanhos de texto e parâmetros de rate limit não calibrados | Engenharia detalha em specs/F0 com validação de entradas reais; não omitir campos do PRD nem recusar dados válidos silenciosamente |
+Não ficam em aberto: Signal Forms junto de Signals, standalone e zoneless; fotos obrigatórias da v1 somente na F5, com veículo ainda gravável sem arquivo; unicidade de placa, CPF e CNPJ apenas entre ativos; rate limit obrigatório no registro, com parâmetros na SDD da F1; sessão em memória, HS256, 15 minutos, tolerância de relógio de 30 segundos, sessão absoluta de 8 horas e rotação de 90 dias como procedimento; duas origens e CORS por origem exata; MSTest com SQL Server real; topologia gratuita da seção 6.1, ainda não provisionada; ausência de recuperação de conta nas entregas da F6.
 
-Não há bloqueio de produto novo identificado para este desenho. Não há divergência autorizada de RF/RNF/RN. Pendências operacionais não são aprovação de produção, e este rascunho não equivale a especificações SDD aprovadas.
+### 9.2 Mapa de rastreabilidade
 
-### 10.1 Mapa de rastreabilidade
-
-| Requisitos | Componentes/contratos | Decisões | Verificações do PRD | Fases |
+| Requisitos | Componentes e contratos | Decisões | Verificação | Fase |
 | --- | --- | --- | --- | --- |
-| RF-01–02 | Acesso, Identity, sessão e `/auth/*` | DT-03–06/13–14 | CA-01: registro, login, logout/replay | F1 |
-| RF-03; RNF-01–02 | TenantContext, guards/FKs, API/fotos privadas | DT-05–07/11–12/15 | CA-01/03/11: A/B, sem sessão, logs sem PII | F1–F5 |
-| RF-04–05 | Grupos/planos e snapshots | DT-04/08/10/13 | CA-02/12: parâmetros, vínculos, histórico | F2–F4 |
-| RF-06–07 | Frota, disponibilidade e storage adapter | DT-07/10–13 | CA-03/06/09: placa, foto, filtro e corrida | F2–F5 |
-| RF-08–10 | Pessoas e elegibilidade | DT-07–10/13 | CA-04/06: PF/PJ, CPF/CNPJ, CNH e vínculo | F2–F4 |
-| RF-11–13 | Preços, taxas e vigências | DT-08–10/13 | CA-05/08/12: bloqueios, preço preservado e combustível | F2–F4 |
-| RF-14–15 | Contratação/revisões/idempotência | DT-08–10/13 | CA-06/07: disponibilidade, edição e preços | F3 |
-| RF-16 | Listas, contrato/demonstrativos e UI | DT-01–02/08–09/13 | CA-07/10/12: estimativa distinta e consulta histórica | F3–F4 |
-| RF-17–18; RN-01–09 | Devolução, domínio de cálculo e transação | DT-08–10/13–14 | CA-07–09/12: valores, limites e repetição | F3–F4 |
-| RF-19; RNF-07 | Soft-delete, snapshots e final imutável | DT-07–10 | CA-10/12: ocultação sem perda histórica | F2–F4 |
-| RNF-03 | Locks, índice único, ETag e comando idempotente | DT-04/10/14 | CA-06/09: concorrência/rollback | F1–F4 |
-| RNF-04 | Controles/rotas Angular e jornadas por teclado | DT-01–02/14 | CA-11, J-01–J-05 | F2–F5 |
-| RNF-05 | Auditoria SQL, ator/empresa/momento | DT-10/15 | CA-11: registro crítico sem segredos | F1–F5 |
-| RNF-06 | Medição, logs e gates operacionais | DT-10–12/15 | CA-11: hipóteses e plano, sem metas inventadas | F0/F5–F6 |
+| RF-01 e RF-02 | Registro, `/api/v1/session` e Identity | DT-05, DT-06, DT-13, DT-18, DT-19 e DT-20 | CA-01: registro, login, logout, reúso e rate limit | F1 |
+| RF-03 e RNF-01 e RNF-02 | Tenant, FKs, guarda de escrita e foto privada | DT-06, DT-07, DT-11 e DT-12 | CA-01 e CA-03: empresas A/B, inclusive foto na F5 | F1 e F5 |
+| RF-04 e RF-05 | Grupos, planos e snapshots | DT-04, DT-08, DT-10 e DT-13 | CA-02 e CA-12 | F2 a F4 |
+| RF-06 e RF-07 | Dados do veículo na F2; foto e disponibilidade | DT-07, DT-10, DT-11 e DT-12 | CA-03 e CA-06. Foto só na F5 | F2 e F5 |
+| RF-08 a RF-10 | Pessoas, vínculos e elegibilidade | DT-07, DT-08, DT-09 e DT-10 | CA-04 e CA-06. Unicidade entre ativos | F2 a F4 |
+| RF-11, RF-12 e RF-13 | Taxas, dois seguros e vigência de combustível | DT-08, DT-09 e DT-10 | CA-05, CA-08 e CA-12 | F2 a F4 |
+| RF-14 e RF-15 | Contratação, revisão e idempotência | DT-08, DT-09, DT-10 e DT-13 | CA-06 e CA-07 | F3 |
+| RF-16 | Listas, contrato, demonstrativo e UI | DT-01, DT-02, DT-08 e DT-09 | CA-07 e CA-10 | F3 e F4 |
+| RF-17, RF-18 e RN-01 a RN-09 | Devolução e cálculo | DT-08, DT-09, DT-10 e DT-14 | CA-07, CA-08, CA-09 e CA-12 | F3 e F4 |
+| RF-19 e RNF-07 | Exclusão lógica, snapshot e final imutável | DT-07, DT-08 e DT-10 | CA-10 e CA-12. Identificador liberado só para identidade nova | F2 a F4 |
+| RNF-03 | Lock, índice de aluguel aberto, ETag e idempotência | DT-04, DT-10 e DT-14 | CA-06 e CA-09 | F1 a F4 |
+| RNF-04 | Signal Forms, rotas e teclado | DT-01, DT-02 e DT-14 | CA-11 e J-01 a J-05 | F2 a F5 |
+| RNF-05 | Auditoria SQL | DT-10 e DT-15 | CA-11, sem segredo no registro | F1 a F5 |
+| RNF-06 | Plano de medição sem número inventado | DT-15 e DT-16 | CA-11. Pendência da seção 9 | F6 apenas como não inventar SLO |
 
-## 11. Fontes técnicas e revisão documental
+### 9.3 Fontes para verificação futura
 
-Documentação consultada nesta sessão, em 2026-11-09, via Context7 e fontes oficiais. Fontes descrevem capacidades das plataformas; não comprovam instalação local nem execução dos contratos.
+As decisões de plataforma estão neste arquivo. Os links orientam a verificação da seção 2.1 e da F6; não comprovam instalação, teste executado nem recurso criado.
 
-- [Angular — compatibilidade de versões](https://angular.dev/reference/versions): tabela consultada de Angular 22.0.x, Node ^22.22.3 / ^24.15.0 / ^26.0.0, TS >=6.0 <6.1 e RxJS ^6.5.3 / ^7.4.0. A seleção Node24/TS6/RxJS7 pertence ao subconjunto aprovado; revalidar minor exata em F0.
-- [Angular — zoneless](https://angular.dev/guide/zoneless), [testes](https://angular.dev/guide/testing) e [formulários tipados](https://angular.dev/guide/forms/typed-forms): zoneless padrão em 21+, atenção a reactive forms e runner Vitest.
-- [Tailwind — Angular](https://tailwindcss.com/docs/installation/framework-guides/angular) e [migração v4](https://tailwindcss.com/docs/upgrade-guide): plugin PostCSS separado e integração CSS; exemplos antigos não dispensam checagem dos peers atuais.
-- [EF Core 10](https://learn.microsoft.com/ef/core/what-is-new/ef-core-10.0/whatsnew), [filtros](https://learn.microsoft.com/ef/core/querying/filters), [concorrência](https://learn.microsoft.com/ef/core/saving/concurrency) e [transações](https://learn.microsoft.com/ef/core/saving/transactions): EF10 exige .NET10; filtros não são proteção suficiente de escrita.
-- [ASP.NET Core — JWT bearer](https://learn.microsoft.com/aspnet/core/security/authentication/configure-jwt-bearer-authentication?view=aspnetcore-10.0) e [Identity API](https://learn.microsoft.com/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0): validar assinatura/issuer/audience/expiração; bearer Identity proprietário não equivale a JWT.
-- [R2 — SDK .NET](https://developers.cloudflare.com/r2/examples/aws/aws-sdk-net/), [compatibilidade S3](https://developers.cloudflare.com/r2/api/s3/api/) e [URLs assinadas](https://developers.cloudflare.com/r2/api/s3/presigned-urls/): endpoint próprio, região/compatibilidade e URLs assinadas utilizáveis por qualquer portador até expiração.
-- [SkiaSharp — documentação](https://github.com/mono/SkiaSharp/tree/main/documentation): codecs, leitura de dimensões e encode JPEG/PNG; suporte nativo exato precisa ser ensaiado no ambiente alvo.
-- [Testcontainers — SQL Server](https://dotnet.testcontainers.org/modules/mssql/) e [ASP.NET Core](https://dotnet.testcontainers.org/examples/aspnet/); [Playwright — locators](https://playwright.dev/docs/locators): integração com banco real e asserts por papel/nome acessível.
+- [Angular — Signal Forms](https://angular.dev/guide/forms/signals/overview) e [zoneless](https://angular.dev/guide/zoneless).
+- [JWT bearer no ASP.NET Core](https://learn.microsoft.com/aspnet/core/security/authentication/configure-jwt-bearer-authentication) e [CORS](https://learn.microsoft.com/aspnet/core/security/cors).
+- [EF Core — concorrência](https://learn.microsoft.com/ef/core/saving/concurrency), [transações](https://learn.microsoft.com/ef/core/saving/transactions) e [aplicação de migrations](https://learn.microsoft.com/ef/core/managing-schemas/migrations/applying).
+- [MSTest](https://github.com/microsoft/testfx).
+- [User Secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets), [configuração no ASP.NET Core](https://learn.microsoft.com/aspnet/core/fundamentals/configuration/) e [App Settings do App Service](https://learn.microsoft.com/azure/app-service/configure-common).
+- [Compose](https://docs.docker.com/compose/intro/compose-application-model/) e [SQL Server em container Linux](https://learn.microsoft.com/sql/linux/install-upgrade/quickstart-install-docker).
+- [R2 — SDK .NET](https://developers.cloudflare.com/r2/examples/aws/aws-sdk-net/) e [compatibilidade S3](https://developers.cloudflare.com/r2/api/s3/api/).
+- [SkiaSharp](https://github.com/mono/SkiaSharp).
+- [Planos do App Service](https://learn.microsoft.com/azure/app-service/overview-hosting-plans), [cotas do Static Web Apps](https://learn.microsoft.com/azure/static-web-apps/quotas), [oferta gratuita do Azure SQL](https://learn.microsoft.com/azure/azure-sql/database/free-tier) e [identidade gerenciada com Azure SQL](https://learn.microsoft.com/azure/app-service/tutorial-connect-msi-sql-database).
+- [HMAC-SHA-256 e tamanho de chave — RFC 7518, seção 3.2](https://www.rfc-editor.org/rfc/rfc7518#section-3.2).
 
-Revisão documental desta entrega: conferidos os grupos de requisitos do PRD e sua rastreabilidade, decisões confirmadas, fórmulas/rounding, sessão revogável, isolamento das fotos, transações/idempotência e gates do roadmap. Verificação local confirmou existência do arquivo, 15 IDs DT distintos, quatro diagramas Mermaid, cercas Markdown balanceadas e ausência de espaços finais. Diagramas não foram renderizados; links externos não foram auditados integralmente. Não foram executados testes de aplicação, build, lint ou CI.
-
-### 11.1 Validação e handoff
-
-- Em 2026-11-09, após disponibilização do arquivo, o solicitante selecionou **Validar base para SDD** pela ferramenta `question`. A validação é do solicitante, não uma revisão técnica independente.
-- Entrada da próxima etapa: `docs/prd.md` e `docs/tdd.md`, preservando IDs RF/RNF/RN/CA e DT, pendências e gates F0–F6.
-- O desenho está liberado como base para preparar especificações futuras. Antes de implementar, verificar ferramentas/compatibilidade e revisar/aprovar especificações e tarefas SDD, conforme F0 e `AGENTS.md`.
-- Esta validação não aprova especificações ainda inexistentes, não resolve os gates operacionais e não autoriza produção, implementação ou merge.
-- Não iniciar OpenSpec automaticamente. Nenhum código, commit ou PR foi produzido nesta entrega.
+Revisão desta entrega documental: conferidos os grupos de requisitos do PRD, as quatro decisões de Signal Forms, fase das fotos, unicidade entre ativos e rate limit do registro, a retirada da recuperação de conta das entregas da F6 e a ausência da branch inexistente no cabeçalho. Diagramas não foram renderizados. Não houve teste, build, lint, CI, provisionamento, change OpenSpec, commit ou PR. `AGENTS.md`, `docs/prd.md` e `openspec/config.yaml` não foram alterados.
