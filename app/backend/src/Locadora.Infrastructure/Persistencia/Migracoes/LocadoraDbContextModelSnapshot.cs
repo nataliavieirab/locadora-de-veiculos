@@ -22,7 +22,7 @@ namespace Locadora.Infrastructure.Persistencia.Migracoes
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Locadora.Domain.Acesso.AuditoriaAcesso", b =>
+            modelBuilder.Entity("Locadora.Domain.Modulos.Acesso.AuditoriaAcesso", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -47,7 +47,7 @@ namespace Locadora.Infrastructure.Persistencia.Migracoes
                     b.ToTable("AuditoriasAcesso", (string)null);
                 });
 
-            modelBuilder.Entity("Locadora.Domain.Acesso.Empresa", b =>
+            modelBuilder.Entity("Locadora.Domain.Modulos.Acesso.Empresa", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -58,7 +58,7 @@ namespace Locadora.Infrastructure.Persistencia.Migracoes
                     b.ToTable("Empresas", (string)null);
                 });
 
-            modelBuilder.Entity("Locadora.Domain.Acesso.RefreshSessao", b =>
+            modelBuilder.Entity("Locadora.Domain.Modulos.Acesso.RefreshSessao", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -97,7 +97,7 @@ namespace Locadora.Infrastructure.Persistencia.Migracoes
                     b.ToTable("RefreshesSessao", (string)null);
                 });
 
-            modelBuilder.Entity("Locadora.Domain.Acesso.SessaoAutenticacao", b =>
+            modelBuilder.Entity("Locadora.Domain.Modulos.Acesso.SessaoAutenticacao", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -131,7 +131,7 @@ namespace Locadora.Infrastructure.Persistencia.Migracoes
                     b.ToTable("SessoesAutenticacao", (string)null);
                 });
 
-            modelBuilder.Entity("Locadora.Infrastructure.Acesso.UsuarioConta", b =>
+            modelBuilder.Entity("Locadora.Infrastructure.Modulos.Acesso.Registro.UsuarioConta", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -269,7 +269,7 @@ namespace Locadora.Infrastructure.Persistencia.Migracoes
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
-                    b.HasOne("Locadora.Infrastructure.Acesso.UsuarioConta", null)
+                    b.HasOne("Locadora.Infrastructure.Modulos.Acesso.Registro.UsuarioConta", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -278,7 +278,7 @@ namespace Locadora.Infrastructure.Persistencia.Migracoes
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
-                    b.HasOne("Locadora.Infrastructure.Acesso.UsuarioConta", null)
+                    b.HasOne("Locadora.Infrastructure.Modulos.Acesso.Registro.UsuarioConta", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -287,7 +287,7 @@ namespace Locadora.Infrastructure.Persistencia.Migracoes
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
-                    b.HasOne("Locadora.Infrastructure.Acesso.UsuarioConta", null)
+                    b.HasOne("Locadora.Infrastructure.Modulos.Acesso.Registro.UsuarioConta", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)

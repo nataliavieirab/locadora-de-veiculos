@@ -1,6 +1,6 @@
-using Locadora.Application.Acesso.Registro;
+using Locadora.Application.Modulos.Acesso.Registro;
 using Locadora.Infrastructure.Persistencia;
-using Locadora.Infrastructure.Transversal;
+using Locadora.Infrastructure.Modulos.Transversal;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
