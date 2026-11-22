@@ -41,7 +41,7 @@ Não existem metas aprovadas de carga, latência, disponibilidade, cobertura per
 
 ## 2. Registro central de decisões
 
-Os identificadores DT-01 a DT-15 mantêm os temas já usados neste TDD e não foram renumerados. O texto é o que passa a valer. DT-16 a DT-21 registram decisões desta revisão que não cabiam no enunciado anterior sem esconder o tema. Nenhuma decisão abaixo descreve componente instalado, recurso Azure criado ou teste executado.
+Os identificadores DT-01 a DT-15 mantêm os temas já usados neste TDD e não foram renumerados. O texto é o que passa a valer. DT-16 a DT-21 registram decisões desta revisão que não cabiam no enunciado anterior sem esconder o tema. DT-22 registra a organização modular interna do backend sob `Modulos/`. Nenhuma decisão abaixo descreve componente instalado, recurso Azure criado ou teste executado.
 
 **Origem:** “PRD” é requisito do documento de produto; “entrevista anterior” é decisão já registrada no desenho de 09/11/2026 e mantida; “revisão de 19/11/2026” é a adoção, como alvo, das decisões de plataforma desta reorganização.
 
@@ -68,6 +68,7 @@ Os identificadores DT-01 a DT-15 mantêm os temas já usados neste TDD e não fo
 | DT-19 | Login | **Definida, somente no login:** senha mínima de 8 caracteres, bloqueio de 15 minutos após 5 falhas e 5 requisições por minuto por IP, sem fila. Erro genérico e `429` quando a taxa do login estoura. | Revisão de 19/11/2026 | O registro persiste a senha pelo mesmo Identity e não conclui com senha que essa política rejeita. Bloqueio, janela e taxa por IP do login não são o rate limit do registro. Sem exigência extra de composição de senha. |
 | DT-20 | Rate limit do registro | **Obrigatória; parâmetros ainda não escolhidos:** o registro público e não autenticado tem rate limit. Limite, janela, identificação e mecanismo ficam para a SDD da F1. | Revisão de 19/11/2026 e RF-01 | Os números da DT-19 não são copiados para esse endpoint. A F1 não pode sair sem a proteção especificada e verificada. |
 | DT-21 | Workflow das fases | **Definida para o trabalho futuro:** cada fase nasce em feature branch. A primeira change, a F1, usa o workflow `spec-driven`: proposal, specs, design e tasks antes do código. A partir da segunda change, a F2, o schema passa a `prototype-first`, no mesmo momento de transição do Gestão de Estacionamento: proposal, specs, protótipo quando houver tela, design e tasks antes do código. Evidência e checklist só depois da verificação. Sync e archive no fechamento. | Revisão de 19/11/2026 | O [openspec/config.yaml](../openspec/config.yaml) permanece em `spec-driven` na F1. O schema `prototype-first` ainda não foi instalado. A instalação e a seleção nesse arquivo ocorrem na abertura da F2. Esta revisão não altera esse arquivo. |
+| DT-22 | Organização modular do backend | **Definida:** em cada projeto de camada e de teste, o código de negócio vive em `Modulos/{módulo}`. Identificadores: `Acesso`, `FrotaPrecos`, `Pessoas`, `Locacoes`, `Fotos` e `Transversal`. Namespace inclui o segmento `Modulos` e acompanha a pasta. Pasta do módulo só existe com implementação real. Host, DbContext, migrations, configuração transversal de host e harness de teste ficam fora de `Modulos/`. | Change de organização modular pós-F1 | Detalhe na seção 3.3. Não altera as quatro camadas nem as dependências de compilação. |}
 
 ### 2.1. Seleção de versões e reprodutibilidade
 
@@ -142,11 +143,40 @@ Listagens têm estados de carregando, vazio e erro, com filtros e paginação. F
 
 ### 3.3 Organização modular interna do backend
 
-Esta diretriz vale para todas as fases. Dentro de cada projeto de camada, o código de uma funcionalidade fica na pasta do módulo da tabela desta seção. O nome do módulo permanece o da tabela. Diretório e namespace usam PascalCase sem acento e sem espaço, no estilo já usado no código: `Acesso`, `FrotaPrecos`, `Pessoas`, `Locacoes`, `Fotos` e `Transversal`. Esses identificadores nomeiam os mesmos módulos.
+Esta diretriz (DT-22) vale para todas as fases. Em cada projeto de camada (`Locadora.Api`, `Locadora.Application`, `Locadora.Domain`, `Locadora.Infrastructure`) e em cada projeto de teste, o código de uma funcionalidade de negócio fica em `Modulos/{módulo}/...`. O nome do módulo permanece o da tabela desta seção. Diretório e namespace usam PascalCase sem acento e sem espaço: `Acesso`, `FrotaPrecos`, `Pessoas`, `Locacoes`, `Fotos` e `Transversal`. O namespace inclui o segmento `Modulos` e acompanha a pasta — por exemplo, `Locadora.Domain.Modulos.Acesso`.
 
-A pasta do módulo existe na camada quando há arquivo daquela funcionalidade. Módulo ainda não implementado não recebe pasta nem arquivo vazio. Na Application, um caso de uso pode ter subpasta própria quando os arquivos formam uma unidade coesa, como `Registro` e `Sessao` dentro de `Acesso`. As demais camadas repetem essa subdivisão somente quando ela separar responsabilidades reais. Controllers, portas e serviços permanecem específicos do caso de uso. Repositório genérico e abstração que esconda lock, tenant ou transação continuam fora do desenho.
+A pasta do módulo existe na camada ou no projeto de teste somente quando há arquivo daquela funcionalidade. Módulo ainda não implementado não recebe pasta nem arquivo vazio. Subpastas internas (`Registro`, `Sessao` e equivalentes) existem só quando separam responsabilidades reais; não se cria simetria artificial entre camadas. Controllers e contratos HTTP do mesmo caso de uso ficam no mesmo submódulo da Api, sem pasta genérica compartilhada entre módulos distintos. Portas e serviços permanecem específicos do caso de uso. Repositório genérico e abstração que esconda lock, tenant ou transação continuam fora do desenho.
 
-A composição do host, o `DbContext` único do monólito, a factory de design e as migrations ficam fora de um módulo de negócio. Configuração de host que reúne conexão, origem CORS, fuso, moeda, chaves e limites também fica fora do módulo, porque atende a aplicação inteira. O namespace acompanha a pasta. Quando o namespace de um tipo mapeado pelo EF Core muda, os identificadores CLR no snapshot e no Designer da migration são atualizados na mesma alteração; o SQL, o identificador da migration, tabelas, colunas e índices permanecem. As dependências de compilação permanecem as já definidas nesta seção.
+Ficam **fora** de `Modulos/`:
+
+- Api: `Program.cs` e `Host/` (helpers de composição HTTP, como serialização de ProblemDetails e filtros genéricos de resposta).
+- Infrastructure: `Dependencias.cs`, `Persistencia/` (`DbContext` único, factory de design, migrations e detecção de falha de armazenamento) e `Seguranca/` (configuração de host: conexão, CORS, chaves, limites).
+- Testes de integração: harness (`Suporte/`) e cenários de fundação do host/schema.
+
+Exemplo alinhado ao que a F1 já implementa (sem pastas de módulos futuros):
+
+```text
+src/Locadora.Api/
+  Program.cs
+  Host/
+  Modulos/Acesso/{Registro,Sessao}/
+src/Locadora.Application/
+  Modulos/Acesso/{Registro,Sessao}/
+  Modulos/Transversal/
+src/Locadora.Domain/
+  Modulos/Acesso/
+  Modulos/Transversal/
+src/Locadora.Infrastructure/
+  Dependencias.cs
+  Persistencia/
+  Seguranca/
+  Modulos/Acesso/{Registro,Sessao}/
+  Modulos/Transversal/
+tests/.../Modulos/Acesso/...
+tests/.../Modulos/Transversal/...
+```
+
+Quando o namespace de um tipo mapeado pelo EF Core muda, os identificadores CLR no snapshot e no Designer da migration são atualizados na mesma alteração; o SQL, o identificador da migration, tabelas, colunas e índices permanecem. As dependências de compilação permanecem as já definidas nesta seção.
 
 ## 4. Modelo de dados, estados e concorrência
 
