@@ -1,6 +1,6 @@
-using Locadora.Domain.Acesso;
-using Locadora.Infrastructure.Acesso;
-using Locadora.Infrastructure.Transversal;
+using Locadora.Domain.Modulos.Acesso;
+using Locadora.Infrastructure.Modulos.Acesso.Registro;
+using Locadora.Infrastructure.Modulos.Transversal;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;

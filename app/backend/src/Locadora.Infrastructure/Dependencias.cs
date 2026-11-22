@@ -1,10 +1,11 @@
-using Locadora.Application.Acesso.Registro;
-using Locadora.Application.Acesso.Sessao;
-using Locadora.Domain.Acesso;
-using Locadora.Infrastructure.Acesso;
+using Locadora.Application.Modulos.Acesso.Registro;
+using Locadora.Application.Modulos.Acesso.Sessao;
+using Locadora.Domain.Modulos.Acesso;
+using Locadora.Infrastructure.Modulos.Acesso.Registro;
+using Locadora.Infrastructure.Modulos.Acesso.Sessao;
+using Locadora.Infrastructure.Modulos.Transversal;
 using Locadora.Infrastructure.Persistencia;
 using Locadora.Infrastructure.Seguranca;
-using Locadora.Infrastructure.Transversal;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

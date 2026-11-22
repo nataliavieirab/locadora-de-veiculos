@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using Locadora.Application.Acesso;
+using Locadora.Application.Modulos.Acesso;
 using Locadora.Infrastructure.Seguranca;
 using Microsoft.EntityFrameworkCore;
 using Locadora.IntegrationTests.Suporte;

@@ -1,9 +1,9 @@
-using System.Text.Json;
 using System.Threading.RateLimiting;
-using Locadora.Api.Acesso;
-using Locadora.Application.Transversal;
+using Locadora.Api.Host;
+using Locadora.Api.Modulos.Acesso.Sessao;
+using Locadora.Application.Modulos.Transversal;
 using Locadora.Infrastructure;
-using Locadora.Infrastructure.Acesso;
+using Locadora.Infrastructure.Modulos.Acesso.Sessao;
 using Locadora.Infrastructure.Persistencia;
 using Locadora.Infrastructure.Seguranca;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -126,28 +126,3 @@ static RateLimitPartition<string> Particionar(HttpContext http, int quantidade, 
 }
 
 public partial class Program;
-
-public static class ProblemaJson
-{
-    public static string Serializar(
-        int status,
-        string title,
-        string code,
-        string traceId,
-        IReadOnlyDictionary<string, string[]>? errors)
-    {
-        var corpo = new Dictionary<string, object?>
-        {
-            ["status"] = status,
-            ["title"] = title,
-            ["code"] = code,
-            ["traceId"] = traceId,
-        };
-        if (errors is not null)
-        {
-            corpo["errors"] = errors;
-        }
-
-        return JsonSerializer.Serialize(corpo);
-    }
-}

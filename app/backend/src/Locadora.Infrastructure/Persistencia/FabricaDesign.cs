@@ -1,4 +1,4 @@
-using Locadora.Infrastructure.Transversal;
+using Locadora.Infrastructure.Modulos.Transversal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 

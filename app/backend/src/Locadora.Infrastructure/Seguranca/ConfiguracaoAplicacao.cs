@@ -1,5 +1,5 @@
 using System.Text;
-using Locadora.Application.Acesso;
+using Locadora.Application.Modulos.Acesso;
 using Microsoft.Extensions.Configuration;
 
 namespace Locadora.Infrastructure.Seguranca;
