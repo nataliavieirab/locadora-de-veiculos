@@ -140,6 +140,14 @@ Guard de rota melhora a navegação e não substitui a autorização da API. O i
 
 Listagens têm estados de carregando, vazio e erro, com filtros e paginação. Formulários exibem resumo e erros por campo, preservam foco e não dependem só de cor. Moeda em BRL e datas no fuso aprovado; o envio usa formato canônico. Estimativa e valor final são visualmente distintos, com quilômetros pendentes e caução separada.
 
+### 3.3 Organização modular interna do backend
+
+Esta diretriz vale para todas as fases. Dentro de cada projeto de camada, o código de uma funcionalidade fica na pasta do módulo da tabela desta seção. O nome do módulo permanece o da tabela. Diretório e namespace usam PascalCase sem acento e sem espaço, no estilo já usado no código: `Acesso`, `FrotaPrecos`, `Pessoas`, `Locacoes`, `Fotos` e `Transversal`. Esses identificadores nomeiam os mesmos módulos.
+
+A pasta do módulo existe na camada quando há arquivo daquela funcionalidade. Módulo ainda não implementado não recebe pasta nem arquivo vazio. Na Application, um caso de uso pode ter subpasta própria quando os arquivos formam uma unidade coesa, como `Registro` e `Sessao` dentro de `Acesso`. As demais camadas repetem essa subdivisão somente quando ela separar responsabilidades reais. Controllers, portas e serviços permanecem específicos do caso de uso. Repositório genérico e abstração que esconda lock, tenant ou transação continuam fora do desenho.
+
+A composição do host, o `DbContext` único do monólito, a factory de design e as migrations ficam fora de um módulo de negócio. Configuração de host que reúne conexão, origem CORS, fuso, moeda, chaves e limites também fica fora do módulo, porque atende a aplicação inteira. O namespace acompanha a pasta. Quando o namespace de um tipo mapeado pelo EF Core muda, os identificadores CLR no snapshot e no Designer da migration são atualizados na mesma alteração; o SQL, o identificador da migration, tabelas, colunas e índices permanecem. As dependências de compilação permanecem as já definidas nesta seção.
+
 ## 4. Modelo de dados, estados e concorrência
 
 ### 4.1 Convenções
