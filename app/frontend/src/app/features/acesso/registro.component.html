@@ -1,0 +1,71 @@
+<main class="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-4 py-10">
+  <header class="flex items-center gap-3">
+    <svg lucideBuilding [size]="28" aria-hidden="true"></svg>
+    <div>
+      <h1 class="text-2xl font-semibold text-stone-950">Criar empresa</h1>
+      <p class="text-stone-700">A conta administrativa é a única desta empresa. Não é preciso informar CNPJ nem nome empresarial.</p>
+    </div>
+  </header>
+
+  <app-resumo-erro [mensagem]="memoria.erro()" />
+
+  <form class="flex flex-col gap-4" [formRoot]="formulario" aria-describedby="resumo-erro" novalidate>
+    <div class="flex flex-col gap-1">
+      <label class="font-medium text-stone-950" for="usuario">Usuário</label>
+      <input
+        id="usuario"
+        type="text"
+        autocomplete="username"
+        class="rounded-md border border-stone-500 bg-white px-3 py-2 text-stone-950"
+        [formField]="formulario.username"
+        [attr.aria-invalid]="formulario.username().invalid() && formulario.username().touched()"
+        [attr.aria-describedby]="formulario.username().invalid() && formulario.username().touched() ? 'erro-usuario' : null"
+      />
+      @if (erroServidor().username) {
+        <p id="erro-usuario" class="text-red-950">{{ erroServidor().username }}</p>
+      } @else if (formulario.username().touched() && formulario.username().invalid()) {
+        <p id="erro-usuario" class="text-red-950">{{ mensagemCampo(formulario.username().errors()) }}</p>
+      }
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="font-medium text-stone-950" for="email">E-mail</label>
+      <input
+        id="email"
+        type="email"
+        autocomplete="email"
+        class="rounded-md border border-stone-500 bg-white px-3 py-2 text-stone-950"
+        [formField]="formulario.email"
+        [attr.aria-invalid]="formulario.email().invalid() && formulario.email().touched()"
+        [attr.aria-describedby]="formulario.email().invalid() && formulario.email().touched() ? 'erro-email' : null"
+      />
+      @if (erroServidor().email) {
+        <p id="erro-email" class="text-red-950">{{ erroServidor().email }}</p>
+      } @else if (formulario.email().touched() && formulario.email().invalid()) {
+        <p id="erro-email" class="text-red-950">{{ mensagemCampo(formulario.email().errors()) }}</p>
+      }
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="font-medium text-stone-950" for="senha">Senha</label>
+      <input
+        id="senha"
+        type="password"
+        autocomplete="new-password"
+        class="rounded-md border border-stone-500 bg-white px-3 py-2 text-stone-950"
+        [formField]="formulario.password"
+        [attr.aria-invalid]="formulario.password().invalid() && formulario.password().touched()"
+        [attr.aria-describedby]="formulario.password().invalid() && formulario.password().touched() ? 'erro-senha' : null"
+      />
+      @if (erroServidor().password) {
+        <p id="erro-senha" class="text-red-950">{{ erroServidor().password }}</p>
+      } @else if (formulario.password().touched() && formulario.password().invalid()) {
+        <p id="erro-senha" class="text-red-950">{{ mensagemCampo(formulario.password().errors()) }}</p>
+      }
+    </div>
+
+    <button type="submit" class="rounded-md bg-stone-900 px-4 py-2 font-medium text-white">Cadastrar</button>
+  </form>
+
+  <a routerLink="/entrar" class="text-blue-900 underline">Já tenho conta</a>
+</main>
