@@ -54,7 +54,15 @@ obj/
 
 # Segredos locais
 app/infra/.env
+/.env
 app/backend/**/chave*.pem
+
+# Playwright
+/playwright-report/
+/test-results/
+app/e2e/node_modules/
+app/e2e/playwright-report/
+app/e2e/test-results/
 
 # Documentação de planejamento local
 /docs/roadpmap-sdd.md
