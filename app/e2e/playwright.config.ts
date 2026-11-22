@@ -1,0 +1,68 @@
+import { randomBytes } from 'node:crypto';
+import path from 'node:path';
+import { defineConfig, devices } from '@playwright/test';
+
+const raiz = path.resolve(__dirname, '../..');
+const base = process.env.LOCADORA_SQL_CONNECTION;
+if (!base) {
+  throw new Error('Defina LOCADORA_SQL_CONNECTION para o Playwright.');
+}
+
+const chave = randomBytes(32).toString('base64');
+const conexao = trocarCatalogo(base, 'locadora_e2e');
+const ambienteApi: Record<string, string> = {};
+for (const [nome, valor] of Object.entries(process.env)) {
+  if (valor !== undefined) {
+    ambienteApi[nome] = valor;
+  }
+}
+ambienteApi.ASPNETCORE_ENVIRONMENT = 'Development';
+ambienteApi.ASPNETCORE_URLS = 'http://127.0.0.1:5285';
+ambienteApi.ConnectionStrings__Locadora = conexao;
+ambienteApi.Autenticacao__Jwt__Chaves__v1 = chave;
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: false,
+  workers: 1,
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
+  use: {
+    baseURL: 'http://localhost:4200',
+    trace: 'retain-on-failure',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: [
+    {
+      command: 'dotnet run --project app/backend/src/Locadora.Api/Locadora.Api.csproj --no-launch-profile',
+      cwd: raiz,
+      url: 'http://127.0.0.1:5285/health',
+      timeout: 120_000,
+      reuseExistingServer: false,
+      env: ambienteApi,
+    },
+    {
+      command: 'npm start -- --host localhost --port 4200',
+      cwd: path.join(raiz, 'app/frontend'),
+      url: 'http://localhost:4200',
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+  ],
+});
+
+function trocarCatalogo(conexao: string, catalogo: string): string {
+  const partes = conexao
+    .split(';')
+    .filter((parte) => {
+      const nome = parte.split('=')[0]?.trim().toLowerCase();
+      return nome !== 'database' && nome !== 'initial catalog' && nome !== '';
+    });
+  partes.push(`Database=${catalogo}`);
+  return partes.join(';');
+}
