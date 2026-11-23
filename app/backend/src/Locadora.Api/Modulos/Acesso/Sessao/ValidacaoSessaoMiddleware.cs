@@ -74,6 +74,8 @@ public sealed class ValidacaoSessaoMiddleware
             }
 
             contexto.EmpresaId = sessao.EmpresaId;
+            contexto.ContaId = conta.Id;
+            contexto.CorrelacaoId = Guid.NewGuid();
             await _proximo(http);
         }
         catch (Exception excecao) when (FalhasArmazenamento.Eh(excecao))

@@ -1,9 +1,14 @@
 using Locadora.Application.Modulos.Acesso.Registro;
 using Locadora.Application.Modulos.Acesso.Sessao;
+using Locadora.Application.Modulos.Transversal;
+using Locadora.Application.Modulos.Pessoas;
+using Locadora.Application.Modulos.FrotaPrecos;
 using Locadora.Domain.Modulos.Acesso;
 using Locadora.Infrastructure.Modulos.Acesso.Registro;
 using Locadora.Infrastructure.Modulos.Acesso.Sessao;
 using Locadora.Infrastructure.Modulos.Transversal;
+using Locadora.Infrastructure.Modulos.Pessoas;
+using Locadora.Infrastructure.Modulos.FrotaPrecos;
 using Locadora.Infrastructure.Persistencia;
 using Locadora.Infrastructure.Seguranca;
 using Microsoft.AspNetCore.Identity;
@@ -20,7 +25,26 @@ public static class Dependencias
         services.AddSingleton(configuracao.Chaves);
         services.AddSingleton(configuracao.Limites);
         services.AddScoped<ContextoEmpresa>();
+        services.AddScoped<IContextoCadastro>(provedor => provedor.GetRequiredService<ContextoEmpresa>());
         services.AddScoped<GuardaEscritaEmpresa>();
+        services.AddScoped<IUnidadeTrabalhoEmpresa, UnidadeTrabalhoEmpresa>();
+        services.AddScoped<IAuditoriaCadastro, RegistroAuditoriaCadastro>();
+        services.AddScoped<IRepositorioPessoas, RepositorioPessoas>();
+        services.AddScoped<IVinculosAluguelPessoas, VinculosAluguelPessoasFase2>();
+        services.AddScoped<CasosPessoas>();
+        services.AddScoped<IRepositorioGruposPlanos, RepositorioGruposPlanos>();
+        services.AddScoped<IVinculosAluguelPlano, VinculosAluguelPlanoFase2>();
+        services.AddScoped<CasosGruposPlanos>();
+        services.AddScoped<IRepositorioVeiculos, RepositorioVeiculos>();
+        services.AddScoped<IVinculosAluguelVeiculo, VinculosAluguelVeiculoFase2>();
+        services.AddScoped<CasosVeiculos>();
+        services.AddScoped<IRepositorioPrecosSeguros, RepositorioPrecosSeguros>();
+        services.AddScoped<CasosPrecosSeguros>();
+        services.AddScoped<IRepositorioPrecosCombustiveis, RepositorioPrecosCombustiveis>();
+        services.AddScoped<CasosPrecosCombustiveis>();
+        services.AddScoped<IRepositorioTaxasServicos, RepositorioTaxasServicos>();
+        services.AddScoped<IVinculosAluguelTaxa, VinculosAluguelTaxaFase2>();
+        services.AddScoped<CasosTaxasServicos>();
         services.AddDbContext<LocadoraDbContext>((provedor, opcoes) =>
         {
             opcoes.UseSqlServer(configuracao.Conexao);
