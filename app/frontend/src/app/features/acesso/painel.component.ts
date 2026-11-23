@@ -1,11 +1,11 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { LucideLogOut } from '@lucide/angular';
 import { SessaoService } from '../../core/sessao.service';
 
 @Component({
   selector: 'app-painel',
-  imports: [LucideLogOut],
+  imports: [LucideLogOut, RouterLink],
   templateUrl: './painel.component.html',
 })
 export class PainelComponent implements OnInit {
