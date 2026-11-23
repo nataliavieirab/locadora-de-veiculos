@@ -1,0 +1,151 @@
+<app-shell-cadastral conteudoId="conteudo-grupos">
+    <main id="conteudo-grupos" class="mx-auto max-w-7xl px-5 py-9 sm:px-10">
+      <div class="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Frota</p>
+          <h1 class="mt-2 text-3xl font-bold tracking-tight text-stone-950">Grupos e planos</h1>
+          <p class="mt-2 text-stone-600">Organize a frota em grupos e defina como cada modalidade será cobrada.</p>
+        </div>
+        <button id="novo-grupo" type="button" class="rounded-lg bg-blue-900 px-5 py-3 font-semibold text-white" (click)="abrirGrupo()">＋ Novo grupo</button>
+      </div>
+      <app-resumo-erro identificador="erro-lista-grupos" [mensagem]="erroPagina()" />
+      @if (aviso()) { <p role="status" class="my-4 rounded-lg border border-green-800 bg-green-50 p-3 text-green-950">{{ aviso() }}</p> }
+      <div role="tablist" aria-label="Conteúdo de grupos e planos" class="my-6 flex gap-1 border-b border-stone-300">
+        <button id="aba-grupos" role="tab" type="button" aria-controls="painel-grupos"
+          [attr.aria-selected]="aba() === 'grupos'" [attr.tabindex]="aba() === 'grupos' ? 0 : -1"
+          class="rounded-t-lg px-5 py-3 font-semibold text-stone-700" [class.bg-white]="aba() === 'grupos'"
+          (click)="mudarAba('grupos')" (keydown)="teclaAba($event)">Grupos</button>
+        <button id="aba-planos" role="tab" type="button" aria-controls="painel-planos"
+          [attr.aria-selected]="aba() === 'planos'" [attr.tabindex]="aba() === 'planos' ? 0 : -1"
+          class="rounded-t-lg px-5 py-3 font-semibold text-stone-700" [class.bg-white]="aba() === 'planos'"
+          (click)="mudarAba('planos')" (keydown)="teclaAba($event)">Planos</button>
+      </div>
+      @if (carregando()) { <p role="status" class="py-8 text-stone-600">Carregando grupos e planos…</p> }
+      @else if (erroPagina() && pagina().total === 0) {
+        <button type="button" class="mt-4 rounded-lg border border-stone-400 bg-white px-4 py-2" (click)="carregar()">Tentar novamente</button>
+      } @else {
+        <section id="painel-grupos" role="tabpanel" aria-labelledby="aba-grupos" [hidden]="aba() !== 'grupos'">
+          <p class="mb-4 text-sm text-stone-600">{{ pagina().total }} grupos ativos</p>
+          @if (pagina().items.length === 0) {
+            <div class="rounded-xl border border-dashed border-stone-400 bg-white px-6 py-14 text-center">
+              <h2 class="text-xl font-semibold">Nenhum grupo cadastrado</h2>
+              <p class="mt-2 text-stone-600">Crie o primeiro grupo para organizar os veículos e configurar seus planos.</p>
+              <button type="button" class="mt-5 rounded-lg bg-blue-900 px-5 py-3 font-semibold text-white" (click)="abrirGrupo()">Criar primeiro grupo</button>
+            </div>
+          } @else {
+            <div class="grid gap-5 xl:grid-cols-2">
+              @for (grupo of pagina().items; track grupo.id) {
+                <article class="overflow-hidden rounded-xl border border-stone-300 bg-white shadow-sm">
+                  <div class="flex flex-wrap items-start justify-between gap-4 p-5">
+                    <div><h2 class="text-lg font-semibold">{{ grupo.nome }}</h2><p class="mt-1 break-all font-mono text-xs text-stone-500">{{ grupo.id }}</p></div>
+                    <div class="flex gap-3 text-sm font-semibold">
+                      <button type="button" class="text-blue-900 underline" [attr.aria-label]="'Editar grupo ' + grupo.nome" (click)="abrirGrupo(grupo)">Editar</button>
+                      <button type="button" class="text-red-900 underline" [attr.aria-label]="'Excluir grupo ' + grupo.nome" (click)="excluirGrupo(grupo)">Excluir</button>
+                    </div>
+                  </div>
+                  <div class="grid gap-3 px-5 pb-5 sm:grid-cols-3">
+                    @for (modalidade of modalidades; track modalidade) {
+                      <div class="rounded-lg bg-stone-100 p-3">
+                        <h3 class="text-sm font-semibold">{{ rotulos[modalidade] }}</h3>
+                        @if (planoDoGrupo(grupo, modalidade); as plano) {
+                          <p class="mt-2 font-bold text-stone-950">{{ plano.precoDiario | moedaBrl }}</p>
+                          @if (plano.modalidade === 'Diario') { <p class="mt-1 text-xs text-stone-600">+ {{ plano.precoKm! | moedaBrl }}/km</p> }
+                          @else if (plano.modalidade === 'Controlado') { <p class="mt-1 text-xs text-stone-600">{{ plano.franquiaDiariaKm }} km/dia · {{ plano.precoKmExcedente! | moedaBrl }} excedente</p> }
+                          @else { <p class="mt-1 text-xs text-stone-600">por dia</p> }
+                        } @else { <p class="mt-2 text-sm text-stone-600">Não configurado</p> }
+                        <button type="button" class="mt-3 text-sm font-semibold text-blue-900 underline"
+                          [attr.aria-label]="'Configurar plano ' + rotulos[modalidade] + ' de ' + grupo.nome"
+                          (click)="abrirPlano(grupo, modalidade)">Configurar</button>
+                      </div>
+                    }
+                  </div>
+                </article>
+              }
+            </div>
+          }
+        </section>
+        <section id="painel-planos" role="tabpanel" aria-labelledby="aba-planos" [hidden]="aba() !== 'planos'">
+          @if (grupoSelecionado(); as grupo) {
+            <div class="rounded-xl border border-stone-300 bg-white p-6">
+              <h2 class="text-xl font-semibold">Planos por grupo</h2>
+              <p class="mt-2 text-stone-600">Selecione um grupo desta página para revisar as três modalidades.</p>
+              <label for="grupo-planos" class="mt-5 block text-sm font-semibold">Grupo</label>
+              <select id="grupo-planos" class="mt-2 w-full max-w-sm rounded-lg border border-stone-400 bg-white px-3 py-2.5"
+                [value]="selecionado()" (change)="selecionarGrupo($event)">
+                @for (opcao of pagina().items; track opcao.id) { <option [value]="opcao.id">{{ opcao.nome }}</option> }
+              </select>
+              <div class="mt-6 grid gap-4 lg:grid-cols-3">
+                @for (modalidade of modalidades; track modalidade) {
+                  <article class="rounded-lg border border-stone-300 bg-stone-50 p-4">
+                    <h3 class="font-semibold">{{ rotulos[modalidade] }}</h3>
+                    @if (planoDoGrupo(grupo, modalidade); as plano) {
+                      <p class="mt-1 break-all font-mono text-xs text-stone-500">{{ plano.id }}</p>
+                      <p class="mt-4 text-xl font-bold">{{ plano.precoDiario | moedaBrl }} <span class="text-sm font-normal">/ dia</span></p>
+                      @if (modalidade === 'Diario') { <p class="mt-2 text-sm">{{ plano.precoKm! | moedaBrl }} por km</p> }
+                      @if (modalidade === 'Controlado') { <p class="mt-2 text-sm">{{ plano.franquiaDiariaKm }} km por dia · {{ plano.precoKmExcedente! | moedaBrl }} excedente</p> }
+                      <div class="mt-5 flex gap-4 text-sm font-semibold">
+                        <button type="button" class="text-blue-900 underline" [attr.aria-label]="'Editar plano ' + rotulos[modalidade]" (click)="abrirPlano(grupo, modalidade)">Editar valores</button>
+                        <button type="button" class="text-red-900 underline" [attr.aria-label]="'Excluir plano ' + rotulos[modalidade]" (click)="excluirPlano(plano)">Excluir</button>
+                      </div>
+                    } @else {
+                      <p class="mt-4 text-stone-600">Não configurado</p>
+                      <button type="button" class="mt-5 text-sm font-semibold text-blue-900 underline" [attr.aria-label]="'Configurar plano ' + rotulos[modalidade]" (click)="abrirPlano(grupo, modalidade)">Configurar plano</button>
+                    }
+                  </article>
+                }
+              </div>
+            </div>
+          } @else { <p class="rounded-xl border border-stone-300 bg-white p-6">Cadastre um grupo para configurar os planos.</p> }
+        </section>
+        @if (pagina().total > pagina().pageSize) {
+          <nav aria-label="Paginação dos grupos" class="mt-6 flex items-center justify-between gap-3">
+            <button type="button" class="rounded-lg border border-stone-400 bg-white px-4 py-2 disabled:opacity-50" [disabled]="pagina().page === 1" (click)="carregar(pagina().page - 1)">Anterior</button>
+            <p class="text-sm">Página {{ pagina().page }}</p>
+            <button type="button" class="rounded-lg border border-stone-400 bg-white px-4 py-2 disabled:opacity-50" [disabled]="pagina().page * pagina().pageSize >= pagina().total" (click)="carregar(pagina().page + 1)">Próxima</button>
+          </nav>
+        }
+      }
+    </main>
+</app-shell-cadastral>
+
+<dialog #editor aria-labelledby="titulo-editor-grupos" (cancel)="cancelarEditor($event)" (close)="editorFechado()"
+  (keydown)="teclaEditor($event)"
+  class="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-lg border-l border-stone-300 bg-white p-0 text-stone-950 shadow-xl backdrop:bg-stone-950/40">
+  <header class="flex items-start justify-between gap-4 border-b border-stone-300 px-6 py-5">
+    <div><p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Cadastro</p><h2 id="titulo-editor-grupos" class="mt-2 text-xl font-semibold">{{ tituloEditor() }}</h2></div>
+    <button type="button" aria-label="Fechar formulário" class="rounded-lg border border-stone-400 px-3 py-2" [disabled]="salvando()" (click)="fecharEditor()">✕</button>
+  </header>
+  <div class="space-y-5 p-6">
+    <app-resumo-erro identificador="erro-editor-grupos" [mensagem]="erroEditor()" />
+    @if (carregandoEditor()) { <p role="status">Carregando cadastro…</p> }
+    @if (editorTipo() === 'grupo') {
+      <form id="formulario-grupo" [formRoot]="formularioGrupo" novalidate>
+        <fieldset [disabled]="carregandoEditor()">
+          <app-campo-texto [campo]="formularioGrupo.nome" identificador="nome-grupo" rotulo="Nome do grupo" ajuda="Até 200 caracteres. Este nome identifica o grupo nas listas e nos planos." />
+        </fieldset>
+      </form>
+    } @else {
+      <p class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">As alterações valem para novas contratações. Valores já contratados permanecem preservados.</p>
+      <form id="formulario-plano" [formRoot]="formularioPlano" novalidate>
+        <fieldset class="space-y-5" [disabled]="carregandoEditor()">
+          <p class="text-sm font-semibold">Modalidade {{ rotulos[modalidade()] }}</p>
+          <app-campo-texto [campo]="formularioPlano.precoDiario" identificador="preco-diario" rotulo="Preço por dia" modoEntrada="decimal" ajuda="Em reais. Use vírgula ou ponto e até seis casas decimais." />
+          @if (modalidade() === 'Diario') {
+            <app-campo-texto [campo]="formularioPlano.precoKm" identificador="preco-km" rotulo="Preço por quilômetro" modoEntrada="decimal" />
+          }
+          @if (modalidade() === 'Controlado') {
+            <app-campo-texto [campo]="formularioPlano.franquiaDiariaKm" identificador="franquia-diaria" rotulo="Franquia diária (km)" modoEntrada="numeric" />
+            <app-campo-texto [campo]="formularioPlano.precoKmExcedente" identificador="preco-excedente" rotulo="Preço por km excedente" modoEntrada="decimal" />
+          }
+        </fieldset>
+      </form>
+    }
+  </div>
+  <footer class="flex justify-end gap-3 border-t border-stone-300 px-6 py-5">
+    <button type="button" class="rounded-lg border border-stone-400 bg-white px-4 py-2.5 font-semibold" [disabled]="salvando()" (click)="fecharEditor()">Cancelar</button>
+    <button type="submit" [attr.form]="editorTipo() === 'grupo' ? 'formulario-grupo' : 'formulario-plano'"
+      [disabled]="salvando() || !editorDisponivel()" class="rounded-lg bg-blue-900 px-5 py-2.5 font-semibold text-white disabled:opacity-50">
+      {{ salvando() ? 'Salvando…' : editorTipo() === 'grupo' ? 'Salvar grupo' : 'Salvar plano' }}
+    </button>
+  </footer>
+</dialog>

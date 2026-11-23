@@ -1,0 +1,84 @@
+<app-shell-cadastral conteudoId="conteudo-veiculos">
+    <main id="conteudo-veiculos" class="mx-auto max-w-7xl px-5 py-9 sm:px-10">
+      <div class="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div><p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Frota</p><h1 class="mt-2 text-3xl font-bold tracking-tight">Veículos</h1><p class="mt-2 text-stone-600">Consulte e mantenha os dados dos veículos ativos da empresa.</p></div>
+        <button id="novo-veiculo" type="button" class="rounded-lg bg-blue-900 px-5 py-3 font-semibold text-white disabled:opacity-50" [disabled]="carregando()" (click)="abrir()">＋ Novo veículo</button>
+      </div>
+      <section aria-label="Filtros da frota" class="mb-5 flex flex-wrap items-end gap-5 rounded-xl border border-stone-300 bg-white p-4">
+        <div><label for="filtro-grupo" class="block text-sm font-semibold">Grupo</label><select id="filtro-grupo" [value]="filtro()" (change)="filtrar($event)" class="mt-2 rounded-lg border border-stone-400 bg-white px-3 py-2.5"><option value="">Todos os grupos</option>@for (grupo of grupos(); track grupo.id) { <option [value]="grupo.id">{{ grupo.nome }}</option> }</select></div>
+        <label class="flex items-center gap-2 py-2"><input type="checkbox" class="size-4" [checked]="agrupado()" (change)="alternarAgrupamento($event)" />Agrupar por grupo</label>
+        <button type="button" class="rounded-lg border border-stone-400 px-4 py-2.5 font-semibold" (click)="filtrar()">Limpar filtro</button>
+      </section>
+      <app-resumo-erro identificador="erro-lista-veiculos" [mensagem]="erroLista()" />
+      @if (aviso()) { <p role="status" class="my-4 rounded-lg border border-green-800 bg-green-50 p-3 text-green-950">{{ aviso() }}</p> }
+      @if (carregando()) { <p role="status" class="py-8 text-stone-600">Carregando frota…</p> }
+      @else if (erroLista()) { <button type="button" class="mt-4 rounded-lg border border-stone-400 bg-white px-4 py-2" (click)="carregar(pagina().page)">Tentar novamente</button> }
+      @else {
+        <p class="my-4 text-sm text-stone-600">{{ pagina().total }} veículos ativos · {{ pagina().items.length }} nesta página</p>
+        @if (pagina().items.length === 0) {
+          <section class="rounded-xl border border-dashed border-stone-400 bg-white px-6 py-14 text-center">
+            <h2 class="text-xl font-semibold">Nenhum veículo para exibir</h2>
+            <p class="mt-2 text-stone-600">{{ filtro() ? 'Não há veículos ativos no grupo selecionado.' : 'Cadastre o primeiro veículo para organizar sua frota.' }}</p>
+          </section>
+        } @else {
+          @for (secao of secoes(); track secao.id) {
+            <section class="mt-6" [attr.aria-label]="secao.nome || 'Frota ativa'">
+              @if (agrupado()) { <h2 class="mb-3 font-semibold">{{ secao.nome }} <span class="ml-2 rounded-full bg-stone-200 px-2 py-1 text-sm">{{ secao.itens.length }} nesta página</span></h2> }
+              <div class="overflow-x-auto rounded-xl border border-stone-300 bg-white shadow-sm">
+                <table class="w-full min-w-3xl border-collapse text-left text-sm">
+                  <caption class="sr-only">Veículos ativos{{ secao.nome ? ' de ' + secao.nome : '' }}</caption>
+                  <thead class="bg-stone-50 text-xs text-stone-600 uppercase"><tr><th scope="col" class="p-4">ID</th><th scope="col" class="p-4">Placa</th><th scope="col" class="p-4">Veículo</th><th scope="col" class="p-4">Cor</th><th scope="col" class="p-4">Combustível</th><th scope="col" class="p-4">Grupo</th><th scope="col" class="p-4">Ações</th></tr></thead>
+                  <tbody>@for (veiculo of secao.itens; track veiculo.id) {
+                    <tr class="border-t border-stone-200">
+                      <td class="max-w-32 break-all p-4 font-mono text-xs text-stone-600">{{ veiculo.id }}</td>
+                      <td class="p-4"><span class="whitespace-nowrap rounded border border-stone-400 bg-stone-50 px-2 py-1 font-mono font-bold">{{ veiculo.placa }}</span></td>
+                      <td class="p-4"><strong class="block">{{ veiculo.modelo }}</strong><span class="text-stone-600">{{ veiculo.marca }} · {{ veiculo.ano }}</span></td>
+                      <td class="p-4">{{ veiculo.cor }}</td><td class="p-4">{{ rotulosCombustivel[veiculo.combustivel] }}</td><td class="p-4">{{ nomeGrupo(veiculo.grupoId) }}</td>
+                      <td class="p-4"><div class="flex gap-3 font-semibold"><button type="button" class="text-blue-900 underline" [attr.aria-label]="'Editar veículo ' + veiculo.placa" (click)="abrir(veiculo)">Editar</button><button type="button" class="text-red-900 underline" [attr.aria-label]="'Excluir veículo ' + veiculo.placa" (click)="excluir(veiculo)">Excluir</button></div></td>
+                    </tr>
+                  }</tbody>
+                </table>
+              </div>
+            </section>
+          }
+        }
+        @if (pagina().total > pagina().pageSize) {
+          <nav aria-label="Paginação da frota" class="mt-6 flex items-center justify-between gap-3">
+            <button type="button" class="rounded-lg border border-stone-400 bg-white px-4 py-2 disabled:opacity-50" [disabled]="pagina().page === 1" (click)="carregar(pagina().page - 1)">Anterior</button><p>Página {{ pagina().page }}</p>
+            <button type="button" class="rounded-lg border border-stone-400 bg-white px-4 py-2 disabled:opacity-50" [disabled]="pagina().page * pagina().pageSize >= pagina().total" (click)="carregar(pagina().page + 1)">Próxima</button>
+          </nav>
+        }
+      }
+    </main>
+</app-shell-cadastral>
+<dialog #editor aria-labelledby="titulo-editor-veiculos" (close)="fechado()" (cancel)="cancelar($event)" (keydown)="teclaEditor($event)"
+  class="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-xl border-l border-stone-300 bg-white p-0 text-stone-950 shadow-xl backdrop:bg-stone-950/40">
+  <header class="flex items-start justify-between gap-4 border-b border-stone-300 px-6 py-5"><div><p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Cadastro de frota</p><h2 id="titulo-editor-veiculos" class="mt-2 text-xl font-semibold">{{ titulo() }}</h2></div><button type="button" class="rounded-lg border border-stone-400 px-3 py-2" aria-label="Fechar formulário" [disabled]="salvando()" (click)="fechar()">✕</button></header>
+  <div class="space-y-5 p-6">
+    <app-resumo-erro identificador="erro-editor-veiculos" [mensagem]="erroEditor()" />
+    @if (carregandoEditor()) { <p role="status">Carregando cadastro…</p> }
+    @if (grupos().length === 0) { <p>Cadastre um grupo antes de salvar o veículo. <a routerLink="/grupos-planos" class="text-blue-900 underline">Gerenciar grupos</a></p> }
+    <form id="formulario-veiculo" [formRoot]="formulario" novalidate>
+      <fieldset class="grid gap-5 sm:grid-cols-2" [disabled]="carregandoEditor()">
+        <app-campo-texto identificador="placa-veiculo" rotulo="Placa" [campo]="formulario.placa" />
+        <div class="space-y-1.5"><label for="grupo-veiculo" class="block text-sm font-semibold">Grupo</label>
+          <select id="grupo-veiculo" [formField]="formulario.grupoId" [attr.aria-invalid]="invalido('grupoId')" [attr.aria-describedby]="invalido('grupoId') ? 'erro-grupo-veiculo' : null" class="w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5"><option value="">Selecione</option>@for (grupo of grupos(); track grupo.id) { <option [value]="grupo.id">{{ grupo.nome }}</option> }</select>
+          @if (invalido('grupoId')) { <p id="erro-grupo-veiculo" class="text-sm font-medium text-red-950">{{ formulario.grupoId().errors()[0]?.message }}</p> }
+        </div>
+        <app-campo-texto identificador="marca-veiculo" rotulo="Marca" [campo]="formulario.marca" />
+        <app-campo-texto identificador="modelo-veiculo" rotulo="Modelo" [campo]="formulario.modelo" />
+        <app-campo-texto identificador="cor-veiculo" rotulo="Cor" [campo]="formulario.cor" />
+        <app-campo-texto identificador="ano-veiculo" rotulo="Ano" modoEntrada="numeric" [campo]="formulario.ano" />
+        <div class="space-y-1.5"><label for="combustivel-veiculo" class="block text-sm font-semibold">Combustível</label>
+          <select id="combustivel-veiculo" [formField]="formulario.combustivel" [attr.aria-invalid]="invalido('combustivel')" [attr.aria-describedby]="invalido('combustivel') ? 'erro-combustivel-veiculo' : null" class="w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5">@for (tipo of combustiveis; track tipo) { <option [value]="tipo">{{ rotulosCombustivel[tipo] }}</option> }</select>
+          @if (invalido('combustivel')) { <p id="erro-combustivel-veiculo" class="text-sm font-medium text-red-950">{{ formulario.combustivel().errors()[0]?.message }}</p> }
+        </div>
+        <app-campo-texto identificador="capacidade-veiculo" rotulo="Capacidade (litros)" modoEntrada="decimal" ajuda="Use vírgula ou ponto e até três casas decimais." [campo]="formulario.capacidadeLitros" />
+      </fieldset>
+    </form>
+  </div>
+  <footer class="flex justify-end gap-3 border-t border-stone-300 px-6 py-5">
+    <button type="button" class="rounded-lg border border-stone-400 bg-white px-4 py-2.5 font-semibold" [disabled]="salvando()" (click)="fechar()">Cancelar</button>
+    <button type="submit" form="formulario-veiculo" class="rounded-lg bg-blue-900 px-5 py-2.5 font-semibold text-white disabled:opacity-50" [disabled]="salvando() || !editorDisponivel()">{{ salvando() ? 'Salvando…' : 'Salvar veículo' }}</button>
+  </footer>
+</dialog>
