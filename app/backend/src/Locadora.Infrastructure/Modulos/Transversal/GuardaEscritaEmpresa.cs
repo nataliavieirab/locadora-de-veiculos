@@ -1,4 +1,5 @@
 using Locadora.Domain.Modulos.Acesso;
+using Locadora.Domain.Modulos.FrotaPrecos;
 using Locadora.Domain.Modulos.Transversal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -51,6 +52,11 @@ public sealed class GuardaEscritaEmpresa : SaveChangesInterceptor
                 }
 
                 continue;
+            }
+
+            if (entrada.Entity is PrecoCombustivel or AuditoriaCadastro && entrada.State != EntityState.Added)
+            {
+                throw new InvalidOperationException("Registros históricos não podem ser alterados ou removidos.");
             }
 
             if (entrada.Entity is not IEntidadeEmpresa entidade)
