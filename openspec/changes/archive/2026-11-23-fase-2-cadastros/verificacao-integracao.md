@@ -1,13 +1,26 @@
 # Verificação integrada e handoff local — F2
 
-Data: 23/11/2026. Branch `feat/fase-2-cadastros`. Este registro descreve implementação e verificações locais; não representa aprovação, homologação, CI, publicação, sincronização ou arquivamento. As seções 6.1 a 6.4 preservam as evidências da implementação anterior à preparação dos commits e do PR.
+Data: 23/11/2026. Branch `feat/fase-2-cadastros`. Este registro descreve implementação, verificações locais e fechamento documental; não representa aprovação, homologação, CI ou publicação. A seção de fechamento registra Sync/Archive posteriores. As demais seções preservam as evidências anteriores a esse fechamento.
+
+## Fechamento SDD posterior à abertura do PR #3
+
+- Pedido expresso do solicitante, confirmado via `question`: executar Sync e Archive antes de eventual merge e incluir o resultado em novo commit na mesma branch do PR #3, sem realizar merge.
+- OpenSpec 1.16.1, raiz local e schema `prototype-first` confirmados. Antes do fechamento, todos os artefatos estavam `done` e o contador da CLI registrava **34/34 tarefas**.
+- Sync criou as specs principais de `cadastros/grupos-planos`, `cadastros/veiculos`, `cadastros/clientes-condutores` e `cadastros/precos-servicos` em `openspec/specs/`. Os **26 requisitos e 81 cenários** foram preservados integralmente, assim como cada `Purpose`, sem placeholders ou cabeçalhos de operação delta nas specs principais. As specs existentes de acesso não foram alteradas.
+- Archive moveu os 17 arquivos da change, incluindo `.openspec.yaml`, para `openspec/changes/archive/2026-11-23-fase-2-cadastros/`. A movimentação foi conferida por SHA-256 antes das adições explícitas de histórico de fechamento neste arquivo e em `tasks.md`.
+- `openspec validate --specs --strict --no-interactive`: **7 specs aprovadas**, nenhuma falha.
+- `openspec validate fase-2-cadastros --strict --no-interactive`: aprovado antes do Archive.
+- `openspec validate --archived --strict --no-interactive`: **3 changes arquivadas aprovadas**, nenhuma falha.
+- `openspec list --json`: nenhuma change ativa após o Archive.
+- Referências de documentação e caminho do protótipo no teste `app/e2e/tests/prototipo-grupos-planos.spec.ts` atualizados para o arquivo arquivado. Não houve alteração de comportamento da aplicação.
+- Build e suítes de aplicação, SQL Server e Playwright não foram reexecutados neste fechamento documental. Seus resultados abaixo continuam sendo evidências das etapas anteriores, não testes novos. Não houve instalação, provisionamento, homologação ou autorização de merge.
 
 ## Preparação dos commits e do PR
 
 - Entrega solicitada: revisar o trabalho preexistente, organizar commits e abrir PR para `main`, usando `.github/pull_request_template.md`. Após `git fetch origin`, a base inicial `4aab063` coincidiu com `origin/main`; não havia PR para esta branch.
 - Orientação expressa via `question`: **não reexecutar SQL Server nem Playwright e não recriar Docker**. Utilizar os resultados anteriores acessíveis abaixo: integração SQL **109 aprovados** e Playwright **8 aprovados**. São evidências históricas documentadas, não execução desta etapa. A configuração SQL temporária anterior não estava disponível; a tentativa preparatória parou antes de invocar `dotnet test` ou acessar SQL.
 - O solicitante também informou validações manuais próprias. Não foram fornecidos roteiro, cenários ou resultados individualizados; não atribuir cobertura adicional presumida.
-- Orientação expressa via `question`: **manter apenas as delta specs**. Sync e archive são pendências do fechamento posterior autorizado, não operações desta entrega. A change permanece ativa.
+- Orientação expressa via `question` naquela preparação: **manter apenas as delta specs**. Sync e archive ficaram pendentes naquela etapa; a decisão foi substituída pelo fechamento posterior registrado acima.
 
 ### Revalidação efetivamente executada nesta etapa
 

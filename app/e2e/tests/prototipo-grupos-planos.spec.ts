@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 test('protótipo demonstra retirada e nova configuração por modalidade com outro ID', async ({ page }) => {
-  const arquivo = path.resolve(__dirname, '../../../openspec/changes/fase-2-cadastros/prototypes/grupos-planos.html');
+  const arquivo = path.resolve(__dirname, '../../../openspec/changes/archive/2026-11-23-fase-2-cadastros/prototypes/grupos-planos.html');
   await page.goto(pathToFileURL(arquivo).href);
   await page.getByRole('tab', { name: 'Planos', exact: true }).click();
   const painel = page.locator('#plansPanel');

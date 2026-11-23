@@ -1,8 +1,20 @@
 # Retomada — fase-2-cadastros
 
+## Fechamento SDD do PR #3 — 23/11/2026
+
+Este bloco prevalece sobre os checkpoints históricos abaixo.
+
+- O PR #3 já está aberto de `feat/fase-2-cadastros` para `main`, como Ready for review. O solicitante pediu Sync e Archive antes de eventual merge e novo commit na mesma PR; confirmou a operação via `question`. Não autorizou merge.
+- As quatro specs principais foram criadas em `openspec/specs/cadastros/`, com os 26 requisitos e 81 cenários das deltas preservados integralmente, sem alteração das specs existentes de acesso.
+- A change `fase-2-cadastros`, schema `prototype-first`, com artefatos completos e **34/34 tarefas**, foi movida para `openspec/changes/archive/2026-11-23-fase-2-cadastros/`, incluindo metadados, protótipos e evidências. Os caminhos antigos nos checkpoints abaixo são históricos; consultar agora esse diretório.
+- Validação estrita das specs: **7 aprovadas**. Validação da change antes do Archive: aprovada. Validação estrita dos arquivos arquivados: **3 changes aprovadas**. A CLI não lista changes ativas após o Archive.
+- O teste de protótipo foi ajustado somente para o novo caminho. Suítes da aplicação e Playwright não foram reexecutadas neste fechamento documental; as evidências anteriores mantêm suas limitações.
+- `.playwright-mcp/` permanece preservado e fora do commit. Próximos gates continuam sendo revisão e verificações do PR; Archive não significa merge, homologação, aprovação da F2/v1 ou publicação.
+- Evidência consolidada: `openspec/changes/archive/2026-11-23-fase-2-cadastros/verificacao-integracao.md`.
+
 ## Preparação da entrega — 23/11/2026
 
-Este bloco atualiza o gate de entrega; os checkpoints abaixo são históricos.
+Este bloco registra a preparação anterior ao fechamento SDD acima; os checkpoints abaixo também são históricos.
 
 - O solicitante autorizou revisar as alterações, organizar commits e abrir PR de `feat/fase-2-cadastros` para `main`. Não autorizou merge.
 - Via `question`, determinou usar as evidências anteriores de SQL/Playwright e suas validações manuais, **sem reexecutar essas suítes nem recriar Docker**. As evidências estão acessíveis nos arquivos de verificação; os cenários manuais não foram detalhados.
