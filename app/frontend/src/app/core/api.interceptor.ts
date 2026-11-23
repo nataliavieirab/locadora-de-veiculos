@@ -4,7 +4,13 @@ import { URL_API } from './configuracao';
 import { MemoriaSessao } from './memoria-sessao';
 
 export const apiInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.startsWith(URL_API)) {
+  let destino: URL;
+  try {
+    destino = new URL(req.url, globalThis.location?.origin ?? URL_API);
+  } catch {
+    return next(req);
+  }
+  if (destino.origin !== new URL(URL_API).origin || !destino.pathname.startsWith('/api/v1/')) {
     return next(req);
   }
 
