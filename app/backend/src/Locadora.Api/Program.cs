@@ -13,6 +13,10 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 var configuracao = ValidadorConfiguracao.Carregar(builder.Configuration);
 
+// Exceções SQL podem conter a chave duplicada mesmo sem sensitive-data logging.
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Update", LogLevel.None);
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.None);
+
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddLocadora(configuracao);
 builder.Services.AddOpenApi();
@@ -31,8 +35,9 @@ builder.Services.AddCors(opcoes =>
     opcoes.AddPolicy("spa", politica =>
     {
         politica.WithOrigins(configuracao.Origem)
-            .WithMethods(HttpMethods.Get, HttpMethods.Post, HttpMethods.Options)
-            .WithHeaders("Authorization", "Content-Type")
+            .WithMethods(HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Delete, HttpMethods.Options)
+            .WithHeaders("Authorization", "Content-Type", "If-Match")
+            .WithExposedHeaders("ETag")
             .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
     });
 });
@@ -57,7 +62,9 @@ builder.Services.AddRateLimiter(opcoes =>
     opcoes.AddPolicy("login", http => Particionar(http, configuracao.Limites.LoginQuantidade, configuracao.Limites.LoginJanela));
 });
 builder.Services.AddScoped<FiltroSemCache>();
-builder.Services.AddControllers();
+builder.Services.AddControllers(opcoes => opcoes.Filters.Add<FiltroErrosCadastro>())
+    .AddJsonOptions(opcoes => opcoes.JsonSerializerOptions.AllowOutOfOrderMetadataProperties = true)
+    .ConfigureApiBehaviorOptions(opcoes => opcoes.InvalidModelStateResponseFactory = ValidacaoTransporte.Responder);
 
 var app = builder.Build();
 
