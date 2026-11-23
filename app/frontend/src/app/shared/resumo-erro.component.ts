@@ -7,7 +7,7 @@ import { LucideCircleX } from '@lucide/angular';
   template: `
     @if (mensagem()) {
       <div
-        id="resumo-erro"
+        [id]="identificador()"
         tabindex="-1"
         role="alert"
         class="flex gap-2 rounded-md border border-red-800 bg-red-50 p-3 text-red-950"
@@ -20,4 +20,5 @@ import { LucideCircleX } from '@lucide/angular';
 })
 export class ResumoErroComponent {
   readonly mensagem = input<string | null>(null);
+  readonly identificador = input('resumo-erro');
 }
