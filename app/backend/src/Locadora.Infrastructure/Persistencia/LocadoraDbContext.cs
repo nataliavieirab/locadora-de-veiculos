@@ -1,4 +1,7 @@
 using Locadora.Domain.Modulos.Acesso;
+using Locadora.Domain.Modulos.FrotaPrecos;
+using Locadora.Domain.Modulos.Pessoas;
+using Locadora.Domain.Modulos.Transversal;
 using Locadora.Infrastructure.Modulos.Acesso.Registro;
 using Locadora.Infrastructure.Modulos.Transversal;
 using Microsoft.AspNetCore.Identity;
@@ -26,6 +29,16 @@ public sealed class LocadoraDbContext : IdentityUserContext<UsuarioConta, Guid>
     public DbSet<SessaoAutenticacao> SessoesAutenticacao => Set<SessaoAutenticacao>();
 
     public DbSet<RefreshSessao> RefreshesSessao => Set<RefreshSessao>();
+    public DbSet<Grupo> Grupos => Set<Grupo>();
+    public DbSet<Plano> Planos => Set<Plano>();
+    public DbSet<Veiculo> Veiculos => Set<Veiculo>();
+    public DbSet<Cliente> Clientes => Set<Cliente>();
+    public DbSet<VinculoCliente> VinculosClientes => Set<VinculoCliente>();
+    public DbSet<Condutor> Condutores => Set<Condutor>();
+    public DbSet<TaxaServico> TaxasServicos => Set<TaxaServico>();
+    public DbSet<PrecoSeguro> PrecosSeguros => Set<PrecoSeguro>();
+    public DbSet<PrecoCombustivel> PrecosCombustiveis => Set<PrecoCombustivel>();
+    public DbSet<AuditoriaCadastro> AuditoriasCadastro => Set<AuditoriaCadastro>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -70,5 +83,17 @@ public sealed class LocadoraDbContext : IdentityUserContext<UsuarioConta, Guid>
         });
 
         builder.Entity<IdentityUserClaim<Guid>>().ToTable("AspNetUserClaims");
+
+        MapeamentosCadastros.Aplicar(builder);
+        builder.Entity<Grupo>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId && item.ExcluidoEmUtc == null);
+        builder.Entity<Plano>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId && item.ExcluidoEmUtc == null);
+        builder.Entity<Veiculo>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId && item.ExcluidoEmUtc == null);
+        builder.Entity<Cliente>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId && item.ExcluidoEmUtc == null);
+        builder.Entity<VinculoCliente>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId && item.ExcluidoEmUtc == null);
+        builder.Entity<Condutor>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId && item.ExcluidoEmUtc == null);
+        builder.Entity<TaxaServico>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId && item.ExcluidoEmUtc == null);
+        builder.Entity<PrecoSeguro>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        builder.Entity<PrecoCombustivel>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        builder.Entity<AuditoriaCadastro>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
     }
 }
