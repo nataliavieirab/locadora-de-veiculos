@@ -1,0 +1,369 @@
+<button type="button" class="mb-6 font-semibold text-blue-900 disabled:opacity-50" [disabled]="congelado()" (click)="aoVoltar()">← Voltar para aluguéis</button>
+
+<div class="mb-7 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">{{ modoEdicao() ? 'Ajuste de contrato' : 'Contratação' }}</p>
+    <h1 id="titulo-contratacao" class="mt-2 text-3xl font-bold tracking-tight" tabindex="-1">
+      {{ modoEdicao() ? 'Editar locação' : 'Nova locação' }}
+    </h1>
+    <p class="mt-2 max-w-2xl text-stone-600">
+      {{ modoEdicao()
+        ? 'Ajuste o contrato em aberto sem perder os valores já contratados.'
+        : 'Defina o contrato, confira a estimativa e confirme a saída do veículo.' }}
+    </p>
+  </div>
+  @if (modoEdicao()) {
+    <span class="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-950">Em aberto</span>
+  }
+</div>
+
+@if (modoEdicao()) {
+  <p class="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+    <strong>Os preços já contratados são preservados.</strong>
+  Itens mantidos usam o valor do contrato. Inclusões e substituições usam os preços atuais. A saída original não muda.
+  </p>
+}
+
+@if (reautenticar()) {
+  <form class="mb-5 grid gap-3 rounded-lg border border-stone-300 bg-white p-4" (submit)="entrarNovamente($event, usuario.value, senha)">
+    <p>Entre com a mesma conta para verificar a contratação. A tentativa permanece somente nesta aba.</p>
+    <label>Usuário <input #usuario autocomplete="username" class="rounded border border-stone-400 p-2" required /></label>
+    <label>Senha <input #senha type="password" autocomplete="current-password" class="rounded border border-stone-400 p-2" required /></label>
+    <button type="submit" class="rounded bg-blue-900 p-3 font-semibold text-white">Reautenticar</button>
+  </form>
+}
+
+@if (incerto()) {
+  <div id="aviso-incerto-contratacao" tabindex="-1" role="alert" class="mb-5 rounded-lg border border-blue-300 bg-blue-50 p-4 text-blue-950">
+    <strong>A contratação pode ter sido registrada.</strong>
+    <p class="mt-1 text-sm">A resposta não foi recebida. Verifique a mesma tentativa antes de criar outra locação ou sair. Recarregar ou fechar esta página perde os dados locais.</p>
+    <button type="button" class="mt-3 rounded-lg bg-blue-900 px-4 py-2 font-semibold text-white" [disabled]="confirmando()"
+      (click)="verificarContratacao()">Verificar contratação</button>
+  </div>
+}
+
+@if (errosResumo()) {
+  <app-resumo-erro identificador="erro-contratacao" [mensagem]="errosResumo()" />
+  @if (acaoExtra() === 'recarregar') {
+    <button type="button" class="mb-5 rounded-lg border border-stone-400 px-4 py-2 font-semibold" (click)="recarregarContrato()">Recarregar contrato</button>
+  }
+}
+
+@if (carregando()) {
+  <p role="status" class="py-8 text-stone-600">Carregando dados para contratação…</p>
+} @else if (erroCarga()) {
+  <button type="button" class="rounded-lg border border-stone-400 p-3" (click)="ngOnInit()">Tentar novamente</button>
+} @else {
+  <form class="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]" novalidate [formRoot]="formulario">
+    <fieldset class="min-w-0 space-y-6" [disabled]="congelado()" [class.opacity-60]="congelado()">
+      <legend class="sr-only">Dados da contratação</legend>
+      <section class="rounded-xl border border-stone-300 bg-white p-5" aria-labelledby="secao-pessoas">
+        <header class="mb-4 flex gap-3">
+          <span class="text-sm font-bold text-blue-900" aria-hidden="true">01</span>
+          <div>
+            <h2 id="secao-pessoas" class="text-lg font-bold">Cliente e condutor</h2>
+            <p class="text-sm text-stone-600">O condutor deve estar vinculado ao cliente contratante.</p>
+          </div>
+        </header>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="cliente-contratacao" class="block text-sm font-semibold">Cliente contratante</label>
+            <select id="cliente-contratacao" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5"
+              [formField]="formulario.clienteId" [attr.aria-invalid]="invalido('clienteId')"
+              [attr.aria-describedby]="invalido('clienteId') ? 'erro-cliente-contratacao' : null"
+              (change)="alterarCliente(($any($event.target)).value)">
+              <option value="">Selecione o cliente</option>
+              @for (cliente of clientes(); track cliente.id) {
+                <option [value]="cliente.id">{{ cliente.nome }} · {{ cliente.tipo }}</option>
+              }
+            </select>
+            @if (invalido('clienteId')) {
+              <p id="erro-cliente-contratacao" class="mt-1 text-sm font-medium text-red-950">{{ mensagemCampo(formulario.clienteId().errors()) }}</p>
+            }
+          </div>
+          <div>
+            <label for="condutor-contratacao" class="block text-sm font-semibold">Condutor</label>
+            @if (modelo().clienteId) {
+              <select id="condutor-contratacao" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5"
+                [formField]="formulario.condutorId" [attr.aria-invalid]="invalido('condutorId')"
+                [attr.aria-describedby]="invalido('condutorId') ? 'erro-condutor-contratacao' : null"
+                (change)="alterarCondutor(($any($event.target)).value)">
+                <option value="">Selecione o condutor</option>
+                @for (condutor of condutores(); track condutor.id) {
+                  <option [value]="condutor.id">{{ condutor.nome }}</option>
+                }
+              </select>
+              @if (invalido('condutorId')) {
+                <p id="erro-condutor-contratacao" class="mt-1 text-sm font-medium text-red-950">{{ mensagemCampo(formulario.condutorId().errors()) }}</p>
+              }
+            } @else {
+              <select id="condutor-contratacao" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5" disabled aria-disabled="true">
+                <option value="">Selecione primeiro o cliente</option>
+              </select>
+            }
+          </div>
+        </div>
+        @if (modelo().clienteId && condutores().length === 0) {
+          <p class="mt-4 rounded-lg border border-amber-700 bg-amber-50 p-3 text-sm text-amber-950">
+            Este cliente não possui condutor ativo vinculado. Cadastre em
+            <a routerLink="/clientes" class="font-semibold underline">Clientes e condutores</a> antes de confirmar.
+          </p>
+        }
+        @if (condutorAtual(); as condutor) {
+          <p class="mt-3 text-sm text-stone-600">
+            CNH {{ mascarar(condutor.cnh) }} · válida até {{ formatarValidadeCnh(condutor.validadeCnh) }} (horário de São Paulo).
+            CPF/CNH serão validados com os dados cadastrados; não há consulta a órgãos oficiais.
+          </p>
+        } @else if (modelo().clienteId && condutores().length) {
+          <p class="mt-3 text-sm text-stone-600">CPF/CNPJ e CNH serão validados com os dados cadastrados. Não há consulta a órgãos oficiais.</p>
+        }
+      </section>
+
+      <section class="rounded-xl border border-stone-300 bg-white p-5" aria-labelledby="secao-veiculo">
+        <header class="mb-4 flex gap-3">
+          <span class="text-sm font-bold text-blue-900" aria-hidden="true">02</span>
+          <div>
+            <h2 id="secao-veiculo" class="text-lg font-bold">Veículo e plano</h2>
+            <p class="text-sm text-stone-600">Somente veículos disponíveis e planos do grupo selecionado.</p>
+          </div>
+        </header>
+        <div>
+          <label for="veiculo-contratacao" class="block text-sm font-semibold">Veículo disponível</label>
+          <select id="veiculo-contratacao" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5"
+            [formField]="formulario.veiculoId" [attr.aria-invalid]="invalido('veiculoId')"
+            [attr.aria-describedby]="invalido('veiculoId') ? 'erro-veiculo-contratacao' : null"
+            (change)="alterarVeiculo(($any($event.target)).value)">
+            <option value="">Selecione o veículo</option>
+            @for (veiculo of frotaDisponivel(); track veiculo.id) {
+              <option [value]="veiculo.id">{{ veiculo.placa }} · {{ veiculo.modelo }} · {{ nomeGrupo(veiculo.grupoId) }}</option>
+            }
+          </select>
+          @if (invalido('veiculoId')) {
+            <p id="erro-veiculo-contratacao" class="mt-1 text-sm font-medium text-red-950">{{ mensagemCampo(formulario.veiculoId().errors()) }}</p>
+          }
+        </div>
+        @if (frotaDisponivel().length === 0) {
+          <p class="mt-4 rounded-lg border border-amber-700 bg-amber-50 p-3 text-sm text-amber-950">
+            Não há veículo disponível. Consulte <a routerLink="/veiculos" class="font-semibold underline">Veículos</a> antes de contratar.
+          </p>
+        }
+        @if (veiculoAtual(); as veiculo) {
+          <p class="mt-3 text-sm text-stone-600">
+            {{ veiculo.marca }} · {{ veiculo.cor }} · {{ veiculo.ano }}
+            @if (grupoNome()) { · grupo {{ grupoNome() }} }
+          </p>
+        }
+        <fieldset class="mt-5">
+          <legend class="text-sm font-semibold">Plano de cobrança</legend>
+          @if (!modelo().veiculoId) {
+            <p class="mt-2 text-sm text-stone-600">Selecione um veículo para consultar os planos do grupo.</p>
+          } @else if (!planosDoGrupo().length) {
+            <p class="mt-2 text-sm text-amber-950">
+              Não há plano configurado neste grupo. Configure em
+              <a routerLink="/grupos-planos" class="font-semibold underline">Grupos e planos</a>.
+            </p>
+          } @else {
+            <div class="mt-3 grid gap-3" id="planos-grupo" [attr.aria-describedby]="invalido('planoId') ? 'erro-plano-contratacao' : null">
+              @for (plano of planosDoGrupo(); track plano.id) {
+                <label class="flex cursor-pointer gap-3 rounded-lg border border-stone-300 p-4 has-[:checked]:border-blue-900 has-[:checked]:ring-1 has-[:checked]:ring-blue-900">
+                  <input type="radio" name="plano" class="mt-1" [value]="plano.id" [checked]="modelo().planoId === plano.id"
+                    (change)="selecionarPlano(plano.id)" [attr.aria-invalid]="invalido('planoId')" [attr.aria-describedby]="invalido('planoId') ? 'erro-plano-contratacao' : null" />
+                  <span>
+                    <strong>{{ rotulosModalidade[plano.modalidade] }}</strong>
+                    <span class="mt-1 block font-semibold tabular-nums">{{ plano.precoDiario | moedaBrl }} <small class="font-normal text-stone-600">/ dia</small></span>
+                    <span class="mt-1 block text-sm text-stone-600">{{ detalhePlano(plano) }}</span>
+                    @if (rotuloPlanoPreservado(plano); as rotulo) {
+                      <span class="mt-1 block text-xs font-semibold text-blue-900">{{ rotulo }}</span>
+                    }
+                  </span>
+                </label>
+              }
+            </div>
+            @if (invalido('planoId')) {
+              <p id="erro-plano-contratacao" class="mt-1 text-sm font-medium text-red-950">{{ mensagemCampo(formulario.planoId().errors()) }}</p>
+            }
+          }
+        </fieldset>
+      </section>
+
+      <section class="rounded-xl border border-stone-300 bg-white p-5" aria-labelledby="secao-periodo">
+        <header class="mb-4 flex gap-3">
+          <span class="text-sm font-bold text-blue-900" aria-hidden="true">03</span>
+          <div>
+            <h2 id="secao-periodo" class="text-lg font-bold">Período e saída</h2>
+            <p class="text-sm text-stone-600">Diárias contadas em períodos iniciados de 24 horas.</p>
+          </div>
+        </header>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <span class="block text-sm font-semibold">Saída</span>
+            @if (modoEdicao() && saidaExibicao(); as saida) {
+              <p id="saida-fixa" class="mt-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-stone-700">{{ saida }}</p>
+              <p class="mt-1 text-xs text-stone-600">Saída original preservada · São Paulo.</p>
+            } @else {
+              <p id="saida-fixa" class="mt-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-stone-700">No momento da confirmação</p>
+              <p class="mt-1 text-xs text-stone-600">Horário registrado pelo servidor. Não é uma reserva.</p>
+            }
+          </div>
+          <div>
+            <label for="retorno-previsto" class="block text-sm font-semibold">Retorno previsto</label>
+            <input id="retorno-previsto" type="datetime-local" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5"
+              [formField]="formulario.retornoPrevistoLocal" [attr.aria-invalid]="invalido('retornoPrevistoLocal')"
+              [attr.aria-describedby]="invalido('retornoPrevistoLocal') ? 'erro-retorno-contratacao saida-hint-sp' : 'saida-hint-sp'"
+              (input)="invalidarEstimativa()" />
+            <p id="saida-hint-sp" class="mt-1 text-xs text-stone-600">Horário de São Paulo · America/Sao_Paulo</p>
+            @if (invalido('retornoPrevistoLocal')) {
+              <p id="erro-retorno-contratacao" class="mt-1 text-sm font-medium text-red-950">{{ mensagemCampo(formulario.retornoPrevistoLocal().errors()) }}</p>
+            }
+          </div>
+          <div>
+            <label for="hodometro-inicial" class="block text-sm font-semibold">Hodômetro inicial (km)</label>
+            <input id="hodometro-inicial" inputmode="numeric" placeholder="Ex.: 18420" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5"
+              [formField]="formulario.hodometro" [attr.aria-invalid]="invalido('hodometro')"
+              [attr.aria-describedby]="invalido('hodometro') ? 'erro-hodometro-contratacao' : null"
+              (input)="invalidarEstimativa()" />
+            @if (invalido('hodometro')) {
+              <p id="erro-hodometro-contratacao" class="mt-1 text-sm font-medium text-red-950">{{ mensagemCampo(formulario.hodometro().errors()) }}</p>
+            }
+          </div>
+          <div>
+            <span class="block text-sm font-semibold">Combustível na saída</span>
+            <p class="mt-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm"><strong>Tanque cheio</strong><br />Reposição apurada na devolução.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-xl border border-stone-300 bg-white p-5" aria-labelledby="secao-adicionais">
+        <header class="mb-4 flex gap-3">
+          <span class="text-sm font-bold text-blue-900" aria-hidden="true">04</span>
+          <div>
+            <h2 id="secao-adicionais" class="text-lg font-bold">Taxas e seguros</h2>
+            <p class="text-sm text-stone-600">Adicionais opcionais, discriminados na estimativa.</p>
+          </div>
+        </header>
+        <p class="text-sm font-semibold">Taxas e serviços</p>
+        @if (taxas().length === 0) {
+          <p class="mt-2 text-sm text-stone-600">
+            Não há taxas ativas. Cadastre em <a routerLink="/precos-servicos" class="font-semibold underline">Preços e serviços</a> se desejar adicionais.
+          </p>
+        } @else {
+          <div class="mt-2 space-y-2">
+            @for (taxa of taxas(); track taxa.id) {
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" [checked]="taxaMarcada(taxa.id)" (change)="alternarTaxa(taxa.id, $any($event.target).checked)" />
+                <span>
+                  {{ taxa.nome }} · {{ taxa.modalidade === 'Fixa' ? 'taxa fixa' : 'por diária' }} · {{ precoTaxa(taxa.id, taxa.preco) | moedaBrl }}
+                  @if (modoEdicao() && taxaMarcada(taxa.id)) {
+                    <small class="ml-1 text-xs text-blue-900">{{ rotuloAdicionalPreservado(taxa.id) }}</small>
+                  }
+                </span>
+              </label>
+            }
+          </div>
+        }
+        <p class="mt-5 text-sm font-semibold">Seguros por diária</p>
+        <div class="mt-2 space-y-2">
+          @if (seguroCliente(); as seg) {
+            <label class="flex items-center gap-2 text-sm" [class.opacity-50]="!seg.configurado">
+              <input type="checkbox" [disabled]="!seg.configurado" [checked]="seguroMarcado('Cliente')"
+                (change)="alternarSeguro('Cliente', $any($event.target).checked)" />
+              <span>
+                Seguro do cliente
+                @if (seg.configurado) { · {{ precoSeguro('Cliente', seg.precoDiario!) | moedaBrl }} / dia }
+                @else {
+                  — não configurado. Defina em <a routerLink="/precos-servicos" class="underline">Preços e serviços</a>.
+                }
+                @if (modoEdicao() && seguroMarcado('Cliente')) {
+                  <small class="ml-1 text-xs text-blue-900">{{ rotuloAdicionalPreservado(seg.id ?? 'cliente', 'Cliente') }}</small>
+                }
+              </span>
+            </label>
+          }
+          @if (seguroTerceiros(); as seg) {
+            <label class="flex items-center gap-2 text-sm" [class.opacity-50]="!seg.configurado">
+              <input type="checkbox" [disabled]="!seg.configurado" [checked]="seguroMarcado('Terceiros')"
+                (change)="alternarSeguro('Terceiros', $any($event.target).checked)" />
+              <span>
+                Seguro de terceiros
+                @if (seg.configurado) { · {{ precoSeguro('Terceiros', seg.precoDiario!) | moedaBrl }} / dia }
+                @else {
+                  — não configurado. Defina em <a routerLink="/precos-servicos" class="underline">Preços e serviços</a>.
+                }
+                @if (modoEdicao() && seguroMarcado('Terceiros')) {
+                  <small class="ml-1 text-xs text-blue-900">{{ rotuloAdicionalPreservado(seg.id ?? 'terceiros', 'Terceiros') }}</small>
+                }
+              </span>
+            </label>
+          }
+        </div>
+      </section>
+    </fieldset>
+
+    <aside class="min-w-0 space-y-4 xl:sticky xl:top-6 xl:self-start" aria-label="Resumo da estimativa">
+      <section class="rounded-xl border border-stone-300 bg-white p-5">
+        <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Demonstrativo</p>
+        <h2 class="mt-1 text-lg font-bold">Estimativa da locação</h2>
+        @if (estimativaDesatualizada()) {
+          <p class="mt-2 text-sm font-semibold text-amber-950">Dados alterados. Calcule novamente antes de confirmar.</p>
+        }
+        <div class="mt-4" aria-live="polite">
+          @if (calculandoEstimativa()) {
+            <p role="status" class="text-sm text-stone-600">Calculando estimativa…</p>
+          } @else if (estimativa(); as est) {
+            <p class="mb-3 flex justify-between rounded-lg bg-stone-100 px-3 py-2 text-sm">
+              <span>Período estimado</span>
+              <strong>{{ est.diarias }} {{ est.diarias === 1 ? 'diária' : 'diárias' }}</strong>
+            </p>
+            @for (comp of est.componentes; track comp.origemId + comp.nome) {
+              <div class="mt-2 flex justify-between gap-3 text-sm">
+                <span>{{ comp.nome }}<small class="mt-0.5 block text-xs text-stone-600">{{ comp.multiplicador }} × {{ comp.precoUnitario | moedaBrl }}</small></span>
+                <span class="font-semibold tabular-nums">{{ comp.valorArredondado | moedaBrl }}</span>
+              </div>
+            }
+            <div class="mt-4 border-t border-stone-200 pt-4">
+              <span class="text-sm font-semibold">Estimativa · parcelas conhecidas</span>
+              <p class="text-2xl font-bold tabular-nums">{{ est.totalConhecido | moedaBrl }}</p>
+              <p class="text-xs text-stone-600">Não é o valor final da locação.</p>
+            </div>
+            @if (est.quilometragemPendente || est.combustivelPendente || est.atrasoPendente) {
+              <div class="mt-4 border-t border-stone-200 pt-3 text-xs text-stone-600">
+                <strong class="text-stone-800">A apurar na devolução</strong>
+                @if (est.quilometragemPendente) { <p class="mt-1">Quilômetros rodados</p> }
+                @if (est.franquiaTotalKm !== null) { <p class="mt-1">Franquia prevista: {{ est.franquiaTotalKm }} km; excedente a apurar.</p> }
+                @if (!est.quilometragemPendente) { <p class="mt-1">Quilometragem sem cobrança no plano Livre.</p> }
+                @if (est.combustivelPendente) { <p class="mt-1">Reposição de combustível</p> }
+                @if (est.atrasoPendente) { <p class="mt-1">Eventual atraso</p> }
+              </div>
+            }
+          } @else {
+            <div class="rounded-lg border border-dashed border-stone-300 bg-stone-50 p-6 text-center text-sm text-stone-600">
+              Preencha os dados e calcule para conferir as parcelas conhecidas.
+            </div>
+          }
+        </div>
+        <div class="mt-4 border-t border-stone-200 pt-4">
+          <p class="text-sm text-stone-600">Garantia · caução fixa</p>
+          <p class="text-2xl font-bold tabular-nums">R$ 1.000,00</p>
+          <p class="mt-1 text-xs text-stone-600">Separada do custo. Não é pagamento, entrada nem desconto sobre a locação.</p>
+        </div>
+      </section>
+      <p class="text-xs text-stone-600"><strong>A prévia não ocupa o veículo nem congela preços.</strong> Os dados e valores são revalidados na confirmação.</p>
+    </aside>
+
+    <footer class="flex flex-col gap-4 border-t border-stone-200 pt-6 sm:flex-row sm:items-center sm:justify-between xl:col-span-2">
+      <p class="text-sm text-stone-600">
+        {{ modoEdicao() ? 'Salvar gera uma revisão. O início original é preservado.' : 'A locação só começa ao confirmar. A saída será registrada nesse momento.' }}
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <button type="button" id="calcular-estimativa" class="rounded-lg border border-stone-400 px-4 py-2.5 font-semibold disabled:opacity-50"
+          [disabled]="!podeCalcular() || calculandoEstimativa()" (click)="calcularEstimativa()">
+          Calcular estimativa
+        </button>
+        <button type="submit" class="rounded-lg bg-blue-900 px-5 py-3 font-semibold text-white disabled:opacity-50"
+          [disabled]="!podeConfirmar() || confirmando()">
+          {{ modoEdicao() ? 'Salvar alterações' : 'Confirmar locação' }}
+        </button>
+      </div>
+    </footer>
+  </form>
+}

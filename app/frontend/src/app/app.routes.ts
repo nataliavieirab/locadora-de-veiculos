@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
+import { protegerContratacao } from './features/locacoes/proteger-contratacao.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'painel' },
@@ -30,6 +31,25 @@ export const routes: Routes = [
     path: 'precos-servicos',
     canActivate: [authGuard],
     loadComponent: () => import('./features/precos/precos.component').then((modulo) => modulo.PrecosComponent),
+  },
+  {
+    path: 'alugueis/nova',
+    canActivate: [authGuard],
+    canDeactivate: [protegerContratacao],
+    data: { nova: true },
+    loadComponent: () => import('./features/locacoes/alugueis.component').then((modulo) => modulo.AlugueisComponent),
+  },
+  {
+    path: 'alugueis/:id/editar',
+    canActivate: [authGuard],
+    canDeactivate: [protegerContratacao],
+    loadComponent: () => import('./features/locacoes/alugueis.component').then((modulo) => modulo.AlugueisComponent),
+  },
+  {
+    path: 'alugueis',
+    canActivate: [authGuard],
+    canDeactivate: [protegerContratacao],
+    loadComponent: () => import('./features/locacoes/alugueis.component').then((modulo) => modulo.AlugueisComponent),
   },
   {
     path: 'painel',
