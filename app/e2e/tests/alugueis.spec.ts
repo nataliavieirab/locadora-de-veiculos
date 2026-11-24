@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-test('lista de aluguéis carrega protegida e aceita filtros sem ações de devolução', async ({ page, request }) => {
+test('lista de aluguéis carrega protegida e aceita filtros de histórico', async ({ page, request }) => {
   test.setTimeout(120_000);
   const usuario = `alug${Date.now().toString(36)}`;
   const registro = await request.post('http://127.0.0.1:5285/api/v1/registro', {
@@ -13,7 +13,7 @@ test('lista de aluguéis carrega protegida e aceita filtros sem ações de devol
   await page.getByRole('link', { name: 'Aluguéis', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Aluguéis', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Nenhum aluguel cadastrado' })).toBeVisible();
-  await expect(page.getByText('Estimativas, não valores finais.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Estimativa e valor final são diferentes.', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Filtros dos aluguéis')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Nova locação' }).first()).toBeVisible();
   const texto = await page.locator('main').innerText();
