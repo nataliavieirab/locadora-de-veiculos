@@ -3,7 +3,7 @@ using Locadora.Domain.Modulos.Transversal;
 
 namespace Locadora.Domain.Modulos.Locacoes;
 
-public enum OrigemInclusao { Contratacao, Edicao }
+public enum OrigemInclusao { Contratacao, Edicao, Devolucao }
 
 public sealed class ItemContratado : IEntidadeEmpresa
 {

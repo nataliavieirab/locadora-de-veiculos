@@ -12,6 +12,7 @@ public sealed class ComandoIdempotente : IEntidadeEmpresa
     public Guid Chave { get; private set; }
     public string HashComando { get; private set; } = "";
     public Guid RevisaoId { get; private set; }
+    public Guid? DemonstrativoFinalId { get; private set; }
     public byte[] VersaoOriginal { get => _versaoOriginal.ToArray(); private set => _versaoOriginal = value.ToArray(); }
     public DateTimeOffset ConfirmadoEmUtc { get; private set; }
 
@@ -32,5 +33,15 @@ public sealed class ComandoIdempotente : IEntidadeEmpresa
             Chave = chave, HashComando = hashComando.ToUpperInvariant(), RevisaoId = revisaoId,
             VersaoOriginal = versaoOriginal.ToArray(), ConfirmadoEmUtc = agora.ToUniversalTime(),
         };
+    }
+
+    public static ComandoIdempotente RegistrarDevolucao(Guid empresaId, Guid contaId, Guid chave,
+        string hashComando, Guid revisaoId, Guid demonstrativoFinalId, byte[] versaoOriginal, DateTimeOffset agora)
+    {
+        ValidacaoCadastro.Referencia(demonstrativoFinalId, "demonstrativoFinalId");
+        var comando = RegistrarCriacao(empresaId, contaId, chave, hashComando, revisaoId, versaoOriginal, agora);
+        comando.Operacao = "devolver-aluguel";
+        comando.DemonstrativoFinalId = demonstrativoFinalId;
+        return comando;
     }
 }
