@@ -1,0 +1,359 @@
+<!--
+Source: proposal.md (What Changes), specs/locacoes/contratacao/spec.md,
+  specs/locacoes/calculo/spec.md, specs/locacoes/consulta/spec.md.
+Style: existing project tokens, authored inline CSS, no styling library/runtime.
+  Reference only: Angular 22.3.0 / Tailwind CSS 4.3.5 / system fonts.
+Covered:
+  F3-CO-01 / Abrir listagem de aluguéis, Carregar lista, Lista vazia, Erro na consulta
+    -> list, count, new/view/edit actions, loading, empty and retry.
+  F3-CO-02 / Aplicar filtros e limpar, Nenhum resultado filtrado, Paginar resultados,
+    Período inválido -> vehicle/state/date filters, clear/apply, pages, field errors.
+  F3-CO-03 / Abrir contrato, Cadastro alterado após contratar, Falhar ao abrir contrato
+    -> native dialog, masked snapshots, current revision, items, close/edit/retry.
+  F3-CO-04 / Consultar contrato externo, Consultar sem sessão
+    -> no tenant selector, masked summaries, missing/expired/denied states.
+  F3-CO-05 / Percorrer J-03 por teclado, Usar tela estreita ou zoom,
+    Diferenciar custo e garantia -> skip link, labels, focus, responsive layout.
+  F3-CT-01 / Abrir nova contratação, Rejeitar entrada inválida,
+    Abandonar formulário sem envio -> required fields, readonly departure, errors/back.
+  F3-CT-02 / Selecionar cliente e condutor, Usar cliente PF como próprio condutor,
+    Rejeitar documentação ou vínculo inelegível, Aceitar CNH no último dia válido,
+    Contratante sem condutor -> linked selects, validity, local fixture errors.
+  F3-CT-03 / Escolher veículo disponível, Configuração necessária ausente,
+    Alterar veículo ou grupo -> available vehicle, conditional plan cards, guidance.
+  F3-CT-04 / Contratar taxas e ambos os seguros, Seguro não configurado ou taxa ausente
+    -> four independent optional checkboxes, missing configuration messages.
+  F3-CT-05 / Confirmar contratação válida, Veículo ocupado entre seleção e confirmação
+    -> success/list/dialog, revalidation conflict, simulated occupancy.
+  F3-CT-06 / Reenviar após resultado incerto, Sair com resultado incerto
+    -> memory-only frozen intent, verify action, navigation block/unload warning.
+  F3-CT-07 / Abrir edição e salvar ajuste válido, Trocar veículo atomicamente,
+    Edição inválida, Estado não editável -> populated form, readonly departure,
+    successful revision and old/new occupancy; state conflict fixture.
+  F3-CT-08 / Ajustar prazo mantendo itens, Incluir ou substituir item
+    -> preserved/current item provenance, preview and revision display.
+  F3-CT-09 / Editar em duas telas -> stale version, reload without force overwrite.
+  F3-CT-11 / Sessão expirada ou acesso negado, Auditoria e indisponibilidade
+    -> sanitised failures and correlation; no actual auth or audit.
+  F3-CA-01 / Horário de São Paulo -> labelled business clock and period.
+  F3-CA-02 / Plano Diário na estimativa, Plano Controlado na estimativa,
+    Plano Livre na estimativa -> daily/allowance/km-pending plan presentation.
+  F3-CA-03 / Adicionais independentes, Remover opcional e recalcular
+    -> separate components, invalidation on input.
+  F3-CA-04 / Caução fora do custo -> separate guarantee, integer-cent fixture amounts.
+  F3-CA-05 / Estimativa conhecida não é final -> explicit pending items at every total.
+  F3-CA-06 / Solicitar e atualizar estimativa, Falha ao calcular,
+    Preço ou relógio mudou depois da prévia, Prévia de edição
+    -> calculation states, no occupation on preview, capture on confirm.
+Not specified (presentational only):
+  Existing shell branding/header and five preexisting destinations are inert spans.
+  Single HTML covers the J-03 flow; hashes select review fixtures, not product controls.
+  Synthetic clock fixed at 23/11/2026 10:00 São Paulo; no historical timezone algorithm.
+Not covered by this artifact:
+  SQL locks/transactions/replay/auth/audit, malformed API payloads, cadastral screens
+  F3-CT-10, historic identity reuse and pure calculator boundary cases require real tests.
+Open questions: none.
+All records are fictional. No network, backend, browser storage or external assets.
+-->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231e3a8a'/%3E%3C/svg%3E">
+  <title>Aluguéis · Protótipo da Fase 3 · Locadora</title>
+  <style>
+    :root{color-scheme:light;--bg:#f5f5f4;--paper:#fff;--ink:#1c1917;--muted:#57534e;--line:#d6d3d1;--blue:#1e3a8a;--blue-soft:#eff6ff;--green:#166534;--red:#7f1d1d;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);font-synthesis:none}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);line-height:1.5}button,input,select{font:inherit}button,a,input,select{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}a{color:var(--blue)}:focus-visible{outline:3px solid var(--blue);outline-offset:3px}[hidden]{display:none!important}h1,h2,h3,p{margin:0}h1{font-size:30px;letter-spacing:-.035em;line-height:1.2}h2{font-size:18px;letter-spacing:-.02em}h3{font-size:15px}small,.small{font-size:12px}svg{width:20px;height:20px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.muted{color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.skip{position:fixed;left:-9999px;top:8px;z-index:80;background:var(--ink);color:white;padding:12px}.skip:focus{left:8px}
+    .review{padding:8px 20px;border-bottom:1px solid #fcd34d;background:#fffbeb;color:#78350f;font-size:12px;text-align:center}.review strong{font-weight:650}.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:calc(100vh - 35px)}.sidebar{background:#1c1917;color:#fafaf9;display:flex;flex-direction:column;gap:32px;padding:24px 16px}.brand{display:flex;align-items:center;gap:12px;padding:0 8px}.brand-mark{display:grid;place-items:center;width:36px;height:36px;background:#fafaf9;color:#1c1917;border-radius:8px;font-size:16px;font-weight:750}.brand small{display:block;color:#a8a29e}.nav{display:grid;gap:7px}.nav span,.nav a{display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;color:#e7e5e4;font-size:14px;font-weight:550;text-decoration:none}.nav .active{background:#44403c;color:white;box-shadow:inset 3px 0 #93c5fd}.nav svg{color:#a8a29e}.nav .active svg{color:#bfdbfe}.sidebar-foot{margin-top:auto;border-top:1px solid #44403c;padding:18px 8px 0;color:#d6d3d1;font-size:12px}.topbar{height:72px;border-bottom:1px solid var(--line);background:white;display:flex;align-items:center;justify-content:flex-end;padding:0 40px;color:var(--blue);font-size:14px;font-weight:600}.topbar span{text-decoration:underline}.page{max-width:1440px;margin:auto;padding:36px 40px 56px}.heading{display:flex;gap:20px;align-items:flex-end;justify-content:space-between;margin-bottom:28px}.eyebrow{display:block;margin-bottom:10px;font-size:11px;text-transform:uppercase;letter-spacing:.15em;font-weight:750;color:var(--blue)}.intro{margin-top:10px;color:var(--muted);font-size:14px;max-width:650px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:1px solid #a8a29e;border-radius:8px;background:white;padding:10px 16px;font-weight:650;font-size:13px;color:var(--ink);text-decoration:none;white-space:nowrap}.btn:hover:not(:disabled){background:#f5f5f4}.btn.primary{background:var(--blue);color:white;border-color:var(--blue)}.btn.primary:hover:not(:disabled){background:#172e6e}.btn.link{border-color:transparent;background:transparent;color:var(--blue);padding-inline:4px;text-decoration:underline;text-underline-offset:3px}.back{margin-bottom:22px}.back svg{width:16px;height:16px}.actions{display:flex;gap:10px;flex-wrap:wrap}.badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #bfdbfe;background:var(--blue-soft);color:var(--blue);border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;white-space:nowrap}.badge:before{content:"";width:5px;height:5px;background:currentColor;border-radius:50%}
+    .filters{background:white;border:1px solid var(--line);border-radius:12px;padding:20px;display:grid;grid-template-columns:1fr 1.5fr 1fr 1fr;gap:16px}.filter-actions{grid-column:1/-1;display:flex;gap:12px;justify-content:flex-end;border-top:1px solid #e7e5e4;padding-top:16px}.field{display:grid;align-content:start;gap:7px;min-width:0}.field label,.label{font-size:13px;font-weight:650}.field input,.field select{min-width:0;width:100%;min-height:44px;border:1px solid #a8a29e;border-radius:8px;background:white;padding:10px 12px;color:var(--ink);font-size:14px}.field input:read-only{background:#f5f5f4;color:var(--muted)}.field .hint{font-size:12px;line-height:1.5;color:var(--muted)}input[aria-invalid=true],select[aria-invalid=true]{border:2px solid var(--red)}.field-error{color:var(--red);font-size:12px;font-weight:600}.count{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:22px 0 12px;color:var(--muted);font-size:12px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:white;box-shadow:0 1px 2px #1c191705}table{width:100%;min-width:1030px;border-collapse:collapse;text-align:left;font-size:13px}th{padding:15px 16px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:#fafaf9;color:var(--muted);font-weight:650;border-bottom:1px solid var(--line)}td{padding:20px 16px;vertical-align:top;border-bottom:1px solid #e7e5e4}tr:last-child td{border-bottom:0}tbody tr:hover{background:#fafaf9}td strong{display:block;font-weight:650}td small{display:block;color:var(--muted);margin-top:4px;font-size:11px}.plate{display:inline-block;border:1px solid #a8a29e;border-radius:4px;background:#fafaf9;letter-spacing:.045em;padding:2px 6px;font-family:ui-monospace,monospace;font-size:11px;font-weight:700;white-space:nowrap}.money{font-variant-numeric:tabular-nums;white-space:nowrap}.row-actions{display:flex;flex-direction:column;align-items:flex-start;gap:7px}.text-action{border:0;background:none;padding:4px 0;color:var(--blue);font-size:12px;font-weight:650;text-decoration:underline;text-underline-offset:3px}.page-note{display:flex;align-items:start;gap:12px;font-size:12px;color:var(--muted);margin-top:20px;max-width:800px}.page-note svg{width:17px;height:17px}.pagination{display:flex;justify-content:space-between;align-items:center;margin-top:20px;font-size:13px}.empty{display:grid;justify-items:center;gap:12px;text-align:center;border:1px dashed #a8a29e;border-radius:12px;background:white;padding:64px 24px}.empty svg{width:32px;height:32px;color:var(--blue)}.empty p{max-width:440px;color:var(--muted);font-size:14px}.alert{border:1px solid #fecaca;background:#fef2f2;color:#7f1d1d;border-radius:8px;padding:16px 18px;font-size:13px;margin-bottom:20px}.alert p{margin-top:5px}.alert.success{background:#f0fdf4;color:#14532d;border-color:#86efac}.alert.info{background:var(--blue-soft);color:#1e3a8a;border-color:#bfdbfe}.alert ul{padding-left:20px;margin:8px 0 0}.alert a{color:inherit}.alert .actions{margin-top:12px}.status{padding:40px;text-align:center;color:var(--muted)}
+    .form-layout{display:grid;grid-template-columns:minmax(0,1fr) 338px;gap:24px;align-items:start}.sections{display:grid;gap:20px}.card{background:white;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px #1c191705}.section-head{padding:22px 24px 18px;display:flex;gap:12px;align-items:start;border-bottom:1px solid #e7e5e4}.section-head .num{font-size:12px;line-height:26px;font-weight:700;color:var(--blue);background:var(--blue-soft);border:1px solid #dbeafe;border-radius:6px;min-width:28px;text-align:center}.section-head p{margin-top:4px;font-size:12px;color:var(--muted)}.section-body{padding:24px;display:grid;gap:20px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}.span2{grid-column:1/-1}.context{padding:12px 14px;border:1px solid #e7e5e4;border-radius:8px;background:#fafaf9;display:flex;gap:10px;align-items:start;font-size:12px;color:var(--muted)}.context svg{width:17px;height:17px;color:var(--blue);margin-top:1px}.context strong{color:var(--ink)}fieldset{border:0;padding:0;margin:0;min-width:0}legend{font-size:13px;font-weight:650;padding:0;margin-bottom:12px}.plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.plan{position:relative;border:1px solid #a8a29e;border-radius:8px;padding:14px 12px;cursor:pointer;background:#fff;display:flex;flex-direction:column;align-items:start;gap:8px;min-height:154px}.plan:has(input:checked){background:#eff6ff;border:2px solid var(--blue);padding:13px 11px}.plan input{accent-color:var(--blue);width:16px;height:16px;position:absolute;top:15px;right:12px}.plan strong{font-size:13px;padding-right:20px}.plan .price{font-size:20px;font-weight:750;letter-spacing:-.04em;margin-top:5px}.plan .price small{font-size:10px;font-weight:400;letter-spacing:0;color:var(--muted)}.plan .detail{font-size:11px;color:var(--muted)}.provenance{font-size:10px;font-weight:650;color:var(--blue)}.choices{display:grid;gap:10px}.choice{display:flex;align-items:start;gap:12px;border:1px solid #d6d3d1;border-radius:8px;padding:14px;cursor:pointer}.choice:has(input:checked){border-color:#93a8d9;background:#f8faff}.choice input{width:17px;height:17px;accent-color:var(--blue);flex-shrink:0;margin:3px 0 0}.choice .description{flex:1}.choice strong{font-size:13px;display:block}.choice small{display:block;color:var(--muted);margin-top:3px;font-size:11px}.choice .unit{font-size:13px;font-weight:700;white-space:nowrap}.subheading{font-size:12px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--muted)}.footer-form{padding:20px 0 0;display:flex;justify-content:space-between;gap:16px;align-items:center}.footer-form p{font-size:12px;color:var(--muted);max-width:300px}
+    .estimate{position:sticky;top:24px}.estimate-head{padding:22px 22px 18px;border-bottom:1px solid #e7e5e4}.estimate-head .eyebrow{margin-bottom:7px}.estimate-head h2{font-size:18px}.estimate-body{padding:22px}.estimate-period{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f5f5f4;border-radius:6px;font-size:12px;margin-bottom:16px}.component{display:flex;justify-content:space-between;align-items:start;gap:14px;margin-top:15px;font-size:12px}.component>span:first-child{max-width:190px}.component small{display:block;font-size:11px;color:var(--muted);margin-top:3px}.component .money{font-weight:650}.estimate-total{border-top:1px solid var(--line);margin-top:20px;padding-top:18px}.estimate-total span{display:block;font-size:12px;font-weight:600}.estimate-total strong{font-size:32px;font-weight:750;letter-spacing:-.045em;font-variant-numeric:tabular-nums}.estimate-total p{font-size:11px;color:var(--muted);margin-top:4px}.pending{border-top:1px solid #e7e5e4;margin-top:18px;padding-top:16px;font-size:11px;color:var(--muted)}.pending strong{display:block;color:#44403c;margin-bottom:6px}.pending p+p{margin-top:6px}.pending p{display:flex;gap:6px}.pending p:before{content:"+";color:var(--blue);font-weight:700}.guarantee{border-top:1px solid var(--line);background:#fafaf9;padding:18px 22px}.guarantee>div{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px}.guarantee strong{font-size:17px;letter-spacing:-.02em}.guarantee p{font-size:11px;color:var(--muted);margin-top:7px}.estimate-placeholder{padding:32px 22px;color:var(--muted);font-size:13px}.estimate-placeholder svg{width:27px;height:27px;color:#a8a29e;margin-bottom:14px}.estimate-note{margin-top:14px;font-size:11px;color:var(--muted);line-height:1.7}.estimate-note strong{color:#44403c}.stale{border:1px solid #fde68a;background:#fffbeb;color:#78350f;padding:10px 12px;border-radius:6px;font-size:12px;margin:16px 22px 0}
+    dialog{position:fixed;inset:0 0 0 auto;margin:0;border:0;border-left:1px solid var(--line);width:min(760px,100%);height:100dvh;max-height:100dvh;max-width:100%;padding:0;background:white;color:var(--ink);box-shadow:-10px 0 60px #1c19171a}dialog::backdrop{background:#1c19175c}.dialog-head{padding:24px 28px;border-bottom:1px solid var(--line);display:flex;align-items:start;justify-content:space-between;gap:20px}.dialog-head .eyebrow{margin-bottom:6px}.dialog-head h2{font-size:24px}.dialog-content{padding:24px 28px;display:grid;gap:20px}.contract-meta{display:flex;justify-content:space-between;gap:16px;align-items:center}.definition{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:0;padding:20px;border:1px solid #e7e5e4;border-radius:8px}.definition dt{font-size:11px;color:var(--muted);margin-bottom:4px}.definition dd{margin:0;font-size:13px;font-weight:600;overflow-wrap:anywhere}.definition dd small{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:4px}.dialog-foot{padding:20px 28px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:12px}.dialog-content .estimate{position:static}.contract-title{display:flex;justify-content:space-between;gap:12px}.contract-title small{font-size:12px;color:var(--muted)}
+    @media(min-width:1600px){.form-layout{grid-template-columns:minmax(0,1fr) 370px}.page{padding-inline:48px}}
+    @media(max-width:1200px){.page{padding:28px 24px 48px}.form-layout{grid-template-columns:minmax(0,1fr) 295px;gap:18px}.section-body{padding:20px}.plans{grid-template-columns:1fr}.plan{min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:5px}.plan .price{grid-column:2;grid-row:1/3;font-size:19px;text-align:right;padding-right:20px;margin:0}.plan .detail{grid-column:1}.plan .provenance{grid-column:1/-1}.filters{grid-template-columns:1fr 1fr}.choice{flex-wrap:wrap}.choice .unit{margin-left:29px}}
+    @media(max-width:960px){.form-layout{grid-template-columns:1fr}.estimate{position:static}.estimate-holder{display:grid;gap:12px}.plans{grid-template-columns:repeat(3,1fr)}.plan{display:flex;min-height:148px}.plan .price{padding:0;text-align:left}.sidebar{padding-inline:12px}.shell{grid-template-columns:212px minmax(0,1fr)}}
+    @media(max-width:700px){.shell{display:block}.sidebar{padding:18px 16px;gap:18px}.nav{display:flex;flex-wrap:wrap;gap:5px}.nav span,.nav a{font-size:12px;padding:8px 10px;gap:7px}.nav svg{width:15px;height:15px}.sidebar-foot{display:none}.topbar{height:52px;padding:0 20px}.page{padding:26px 18px 40px}.heading{align-items:start;flex-direction:column;gap:18px}.heading>.btn{width:100%}h1{font-size:28px}.filters{padding:16px;gap:16px 12px}.grid2{grid-template-columns:1fr}.span2{grid-column:auto}.plans{grid-template-columns:1fr}.plan{min-height:0;display:grid;grid-template-columns:1fr 1fr}.section-head{padding:20px}.section-body{padding:18px}.footer-form{flex-direction:column;align-items:stretch}.footer-form .actions{display:grid;grid-template-columns:1fr}.footer-form p{max-width:none}.count{align-items:start;flex-direction:column;gap:5px}.filter-actions{flex-wrap:wrap;justify-content:start}.dialog-head,.dialog-content,.dialog-foot{padding:20px}.definition{grid-template-columns:1fr}.contract-meta{align-items:start;flex-direction:column}.review{font-size:11px}.topbar{font-size:13px}}
+    @media(max-width:700px){.plan .price{font-size:18px;padding-right:22px}.plan .price small{white-space:nowrap}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+      <symbol id="i-car" viewBox="0 0 24 24"><path d="m5 7 2-3h10l2 3 2 4v7H3v-7l2-4Zm-2 4h18M6 18v3m12-3v3"/><path d="M6 14h2m8 0h2M5 7h14"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 4v2"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M3 6h5m4 0h9M3 12h11m4 0h3M3 18h2m4 0h12"/><circle cx="10" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+      <symbol id="i-contract" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8l-5-5Z"/><path d="M14 3v5h5M8 12h8M8 16h5"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m12 5-7 7 7 7M5 12h14"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    </defs>
+  </svg>
+  <a class="skip" href="#content">Ir para o conteúdo</a>
+  <div class="review" role="note"><strong>Protótipo para revisão · Fase 3</strong> · Dados fictícios, sem servidor · Relógio simulado: 23/11/2026, 10h, São Paulo</div>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Área administrativa">
+      <div class="brand"><span class="brand-mark">LV</span><div><strong>Locadora</strong><small>Administração</small></div></div>
+      <nav class="nav" aria-label="Navegação principal">
+        <span><svg aria-hidden="true"><use href="#i-grid"/></svg>Grupos e planos</span>
+        <span><svg aria-hidden="true"><use href="#i-car"/></svg>Veículos</span>
+        <span><svg aria-hidden="true"><use href="#i-users"/></svg>Clientes e condutores</span>
+        <span><svg aria-hidden="true"><use href="#i-sliders"/></svg>Preços e serviços</span>
+        <a href="#lista" class="active" aria-current="page" id="navRentals"><svg aria-hidden="true"><use href="#i-contract"/></svg>Aluguéis</a>
+        <span><svg aria-hidden="true"><use href="#i-grid"/></svg>Sua empresa</span>
+      </nav>
+      <p class="sidebar-foot">Sessão administrativa nesta aba</p>
+    </aside>
+    <div>
+      <header class="topbar"><span>Sua empresa</span></header>
+      <main class="page" id="content">
+        <section id="listScreen" aria-labelledby="listTitle">
+          <div class="heading"><div><span class="eyebrow">Locações</span><h1 id="listTitle" tabindex="-1">Aluguéis</h1><p class="intro">Consulte os contratos da empresa e acompanhe as locações em aberto.</p></div><button class="btn primary" id="newRental"><svg aria-hidden="true"><use href="#i-plus"/></svg>Nova locação</button></div>
+          <div class="alert success" id="success" role="status" hidden></div>
+          <form id="filters" class="filters" novalidate aria-label="Filtros dos aluguéis">
+            <div class="field"><label for="stateFilter">Estado</label><select id="stateFilter"><option value="">Todos os estados</option><option value="open">Em aberto</option></select></div>
+            <div class="field"><label for="vehicleFilter">Veículo</label><select id="vehicleFilter"></select></div>
+            <div class="field"><label for="startFilter">Saída a partir de</label><input id="startFilter" type="date"></div>
+            <div class="field"><label for="endFilter">Saída até</label><input id="endFilter" type="date" aria-describedby="periodError"><span id="periodError" class="field-error" hidden>O fim do período deve ser igual ou posterior ao início.</span></div>
+            <div class="filter-actions"><button class="btn" type="button" id="clearFilters">Limpar filtros</button><button class="btn primary" type="submit">Aplicar filtros</button></div>
+          </form>
+          <div class="count"><span id="resultCount"></span><span>Horários de São Paulo · America/Sao_Paulo</span></div>
+          <div id="listResult"></div>
+          <nav id="pagination" class="pagination" aria-label="Paginação dos aluguéis" hidden><button class="btn" id="previous">Anterior</button><span id="pageLabel"></span><button class="btn" id="next">Próxima</button></nav>
+          <p class="page-note"><svg aria-hidden="true"><use href="#i-info"/></svg><span><strong>Estimativas, não valores finais.</strong> Quilômetros, quando aplicáveis, reposição de combustível e eventual atraso serão apurados na devolução. A caução não compõe o custo.</span></p>
+        </section>
+        <section id="formScreen" hidden aria-labelledby="formTitle">
+          <button class="btn link back" id="backToList"><svg aria-hidden="true"><use href="#i-arrow"/></svg>Voltar para aluguéis</button>
+          <div class="heading"><div><span class="eyebrow" id="formEyebrow">Contratação</span><h1 id="formTitle" tabindex="-1">Nova locação</h1><p class="intro" id="formIntro">Defina o contrato, confira a estimativa e confirme a saída do veículo.</p></div><span class="badge" id="editBadge" hidden>Em aberto</span></div>
+          <div class="alert" id="formError" tabindex="-1" role="alert" hidden></div>
+          <div class="alert info" id="editNotice" hidden><strong>Os preços já contratados são preservados.</strong><p>Itens mantidos usam o valor do contrato. Inclusões e substituições usam os preços atuais. A saída original não muda.</p></div>
+          <div class="alert info" id="uncertain" tabindex="-1" role="alert" hidden><strong>A contratação pode ter sido registrada.</strong><p>A resposta não foi recebida. Verifique a mesma tentativa antes de criar outra locação ou sair. Recarregar ou fechar esta página perde os dados locais.</p><div class="actions"><button class="btn primary" type="button" id="verify">Verificar contratação</button></div></div>
+          <form id="rentalForm" novalidate>
+            <div class="form-layout">
+              <div class="sections">
+                <section class="card" aria-labelledby="peopleHeading">
+                  <div class="section-head"><span class="num" aria-hidden="true">01</span><div><h2 id="peopleHeading">Cliente e condutor</h2><p>O condutor deve estar vinculado ao cliente contratante.</p></div></div>
+                  <div class="section-body">
+                    <div class="grid2">
+                      <div class="field"><label for="client">Cliente contratante</label><select id="client" name="client" required aria-describedby="clientError"></select><span class="field-error" id="clientError" hidden></span></div>
+                      <div class="field"><label for="driver">Condutor</label><select id="driver" name="driver" required aria-describedby="driverError"><option value="">Selecione primeiro o cliente</option></select><span class="field-error" id="driverError" hidden></span></div>
+                    </div>
+                    <div class="context" id="driverInfo"><svg aria-hidden="true"><use href="#i-info"/></svg><span>CPF/CNPJ e CNH serão validados com os dados cadastrados. Não há consulta a órgãos oficiais.</span></div>
+                  </div>
+                </section>
+                <section class="card" aria-labelledby="vehicleHeading">
+                  <div class="section-head"><span class="num" aria-hidden="true">02</span><div><h2 id="vehicleHeading">Veículo e plano</h2><p>Somente veículos disponíveis e planos do grupo selecionado.</p></div></div>
+                  <div class="section-body">
+                    <div class="field"><label for="vehicle">Veículo disponível</label><select id="vehicle" name="vehicle" required aria-describedby="vehicleError"></select><span class="field-error" id="vehicleError" hidden></span></div>
+                    <div class="context" id="vehicleInfo" hidden></div>
+                    <fieldset id="planSet"><legend>Plano de cobrança</legend><div class="plans" id="plans"></div><span class="field-error" id="planError" hidden></span></fieldset>
+                  </div>
+                </section>
+                <section class="card" aria-labelledby="periodHeading">
+                  <div class="section-head"><span class="num" aria-hidden="true">03</span><div><h2 id="periodHeading">Período e saída</h2><p>Diárias contadas em períodos iniciados de 24 horas.</p></div></div>
+                  <div class="section-body">
+                    <div class="grid2">
+                      <div class="field"><label for="departure">Saída</label><input id="departure" readonly value="No momento da confirmação"><span class="hint" id="departureHint">Horário registrado pelo servidor. Não é uma reserva.</span></div>
+                      <div class="field"><label for="expected">Retorno previsto</label><input id="expected" name="expected" type="datetime-local" required value="2026-11-25T10:00" aria-describedby="expectedHint expectedError"><span class="hint" id="expectedHint">Horário de São Paulo · America/Sao_Paulo</span><span class="field-error" id="expectedError" hidden></span></div>
+                      <div class="field"><label for="odometer">Hodômetro inicial (km)</label><input id="odometer" name="odometer" inputmode="numeric" placeholder="Ex.: 18420" required aria-describedby="odometerError"><span class="field-error" id="odometerError" hidden></span></div>
+                      <div class="field"><span class="label">Combustível na saída</span><div class="context"><svg aria-hidden="true"><use href="#i-check"/></svg><span><strong>Tanque cheio</strong><br>Reposição apurada na devolução.</span></div></div>
+                    </div>
+                  </div>
+                </section>
+                <section class="card" aria-labelledby="extrasHeading">
+                  <div class="section-head"><span class="num" aria-hidden="true">04</span><div><h2 id="extrasHeading">Taxas e seguros</h2><p>Adicionais opcionais, discriminados na estimativa.</p></div></div>
+                  <div class="section-body">
+                    <p class="subheading">Taxas e serviços</p><div class="choices" id="fees"></div>
+                    <p class="subheading">Seguros por diária</p><div class="choices" id="insurance"></div>
+                  </div>
+                </section>
+              </div>
+              <aside class="estimate-holder" aria-label="Resumo da estimativa">
+                <div class="estimate">
+                  <section class="card">
+                    <header class="estimate-head"><span class="eyebrow">Demonstrativo</span><h2>Estimativa da locação</h2></header>
+                    <p class="stale" id="stale" hidden>Dados alterados. Calcule novamente antes de confirmar.</p>
+                    <div id="estimateContent" aria-live="polite"><div class="estimate-placeholder"><svg aria-hidden="true"><use href="#i-contract"/></svg><p>Preencha os dados e calcule para conferir as parcelas conhecidas.</p></div></div>
+                    <div class="guarantee"><div><span>Garantia · caução fixa</span><strong class="money">R$ 1.000,00</strong></div><p>Separada do custo. Não é pagamento, entrada nem desconto sobre a locação.</p></div>
+                  </section>
+                  <p class="estimate-note"><strong>A prévia não ocupa o veículo nem congela preços.</strong> Os dados e valores são revalidados na confirmação.</p>
+                </div>
+              </aside>
+            </div>
+            <footer class="footer-form"><p id="saveHelp">A locação só começa ao confirmar. A saída será registrada nesse momento.</p><div class="actions"><button class="btn" type="button" id="calculate"><svg aria-hidden="true"><use href="#i-contract"/></svg>Calcular estimativa</button><button class="btn primary" type="submit" id="confirm" disabled>Confirmar locação</button></div></footer>
+          </form>
+        </section>
+        <section id="accessScreen" hidden aria-labelledby="accessTitle"><span class="eyebrow">Acesso</span><h1 id="accessTitle" tabindex="-1"></h1><p class="intro" id="accessMessage"></p></section>
+      </main>
+    </div>
+  </div>
+  <dialog id="contractDialog" aria-labelledby="contractTitle">
+    <header class="dialog-head"><div><span class="eyebrow">Contrato preservado</span><h2 id="contractTitle">Locação</h2></div><button class="btn" id="closeContract" aria-label="Fechar contrato">Fechar</button></header>
+    <div class="dialog-content" id="contractContent"></div>
+    <footer class="dialog-foot"><button class="btn primary" id="editContract">Editar locação</button></footer>
+  </dialog>
+  <script>
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const icon = id => `<svg aria-hidden="true"><use href="#i-${id}"/></svg>`;
+    const safe = text => String(text).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const now = "2026-11-23T10:00";
+    const clients = [
+      {id:"pf",name:"Celina Fictícia",type:"PF",document:"***.***.***-01"},
+      {id:"pj",name:"Horizonte Exemplo Ltda.",type:"PJ",document:"**.***.***/****-02"},
+      {id:"empty",name:"Cliente Exemplo Sem Condutor",type:"PJ",document:"**.***.***/****-03"}
+    ];
+    const drivers = [
+      {id:"self",client:"pf",name:"Celina Fictícia",valid:"2028-09-18",document:"***.***.***-01",license:"*******001"},
+      {id:"company",client:"pj",name:"Tomás Exemplo",valid:"2028-06-12",document:"***.***.***-02",license:"*******002"},
+      {id:"expired",client:"pj",name:"Condutora Fictícia — CNH vencida",valid:"2026-11-22",document:"***.***.***-03",license:"*******003"}
+    ];
+    const vehicles = [
+      {id:"v1",plate:"FIC-1A01",model:"Orbe Lume",brand:"Orbe",group:"Compactos urbanos",fuel:"Gasolina",capacity:"50,000",year:"2026",color:"Azul"},
+      {id:"v2",plate:"FIC-2A02",model:"Nimbo Uno",brand:"Nimbo",group:"Compactos urbanos",fuel:"Álcool",capacity:"48,000",year:"2025",color:"Prata"},
+      {id:"v3",plate:"FIC-3A03",model:"Vértice Cargo",brand:"Vértice",group:"Utilitários leves",fuel:"Diesel",capacity:"60,000",year:"2026",color:"Branco"},
+      {id:"v4",plate:"FIC-4A04",model:"Orbe Lume",brand:"Orbe",group:"Compactos urbanos",fuel:"Gasolina",capacity:"50,000",year:"2026",color:"Azul"},
+      {id:"v5",plate:"FIC-5A05",model:"Vértice Cargo",brand:"Vértice",group:"Utilitários leves",fuel:"Diesel",capacity:"60,000",year:"2026",color:"Branco"}
+    ];
+    const plans = [
+      {id:"daily",name:"Diário",cents:10000n,detail:"+ R$ 2,00 por km"},
+      {id:"controlled",name:"Controlado",cents:10000n,detail:"100 km/dia · R$ 2,00/km excedente"},
+      {id:"free",name:"Livre",cents:10000n,detail:"Sem cobrança por quilômetro"}
+    ];
+    const extras = [
+      {id:"fee-fixed",name:"Entrega do veículo",cents:3000n,kind:"Fixa",insurance:false},
+      {id:"fee-daily",name:"Cadeira infantil",cents:1000n,kind:"Diária",insurance:false},
+      {id:"ins-client",name:"Seguro do cliente",cents:500n,kind:"Diária",insurance:true},
+      {id:"ins-third",name:"Seguro de terceiros",cents:700n,kind:"Diária",insurance:true}
+    ];
+    // Fixture money uses integer cents only. This is not the production calculator.
+    function money(cents){const n=BigInt(cents);return "R$ "+(n/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".")+","+(n%100n).toString().padStart(2,"0")}
+    function localTime(value){if(!value)return "—";const [day,time]=value.split("T");return day.split("-").reverse().join("/")+" · "+time}
+    function instant(value){return Date.parse(value+":00-03:00")}
+    function duration(start,end){return Math.max(1,Math.ceil((instant(end)-instant(start))/86400000))}
+    let rentals = [
+      {id:"LOC-0001",client:"pf",driver:"self",vehicle:"v1",plan:"controlled",departure:now,expected:"2026-11-25T10:00",odometer:"18420",extras:extras.map(x=>x.id),revision:1,planCents:10000n,extraPrices:Object.fromEntries(extras.map(x=>[x.id,x.cents]))},
+      {id:"LOC-0002",client:"pj",driver:"company",vehicle:"v2",plan:"daily",departure:now,expected:"2026-11-24T10:00",odometer:"22110",extras:[],revision:1,planCents:10000n,extraPrices:{}},
+      {id:"LOC-0003",client:"pj",driver:"company",vehicle:"v3",plan:"free",departure:now,expected:"2026-11-26T10:00",odometer:"30250",extras:["ins-client"],revision:1,planCents:10000n,extraPrices:{"ins-client":500n}}
+    ];
+    // Every initial contract has independent snapshots, never live-name joins.
+    function capture(r){return {...r,clientSnapshot:{...clients.find(x=>x.id===r.client)},driverSnapshot:{...drivers.find(x=>x.id===r.driver)},vehicleSnapshot:{...vehicles.find(x=>x.id===r.vehicle)},planSnapshot:{...plans.find(x=>x.id===r.plan)}}}
+    rentals=rentals.map(capture);
+    let mode="create",current=null,estimate=null,uncertain=false,pendingIntent=null,fixture="",page=1,visible=[],opener=null,viewed=null,revisionHistory=[],inputVersion=0;
+    let applied={vehicle:"",state:"",start:"",end:""};
+    const unavailable = new Set();
+    function selectedPlan(){return document.querySelector('input[name="plan"]:checked')?.value||""}
+    function selectedExtras(){return [...document.querySelectorAll('input[name="extra"]:checked')].map(x=>x.value)}
+    function command(){return {client:$("client").value,driver:$("driver").value,vehicle:$("vehicle").value,plan:selectedPlan(),expected:$("expected").value,odometer:$("odometer").value,extras:selectedExtras(),departure:current?.departure||now}}
+    function preservedPlan(planId,vehicleId){return mode==="edit"&&current&&current.plan===planId&&current.vehicleSnapshot.group===vehicles.find(x=>x.id===vehicleId)?.group}
+    function currentPrice(planId,vehicleId){const base=vehicles.find(x=>x.id===vehicleId)?.group==="Utilitários leves"?14000n:10000n;return preservedPlan(planId,vehicleId)?current.planCents:base}
+    function calculateFixture(c){const d=duration(c.departure,c.expected);const planCents=currentPrice(c.plan,c.vehicle);const components=[{name:"Plano "+plans.find(x=>x.id===c.plan).name,unit:planCents,multiplier:d,preserved:preservedPlan(c.plan,c.vehicle)}];for(const id of c.extras){const x=extras.find(e=>e.id===id),preserved=mode==="edit"&&current.extras.includes(id);components.push({name:x.name,unit:preserved?current.extraPrices[id]:x.cents,multiplier:x.kind==="Fixa"?1:d,preserved})}return {days:d,plan:c.plan,components,total:components.reduce((sum,x)=>sum+x.unit*BigInt(x.multiplier),0n)}}
+    function storedEstimate(r){const components=[{name:"Plano "+r.planSnapshot.name,unit:r.planCents,multiplier:duration(r.departure,r.expected),preserved:true}];for(const id of r.extras){const x=extras.find(e=>e.id===id);components.push({name:x.name,unit:r.extraPrices[id],multiplier:x.kind==="Fixa"?1:duration(r.departure,r.expected),preserved:true})}return {days:duration(r.departure,r.expected),plan:r.plan,components,total:components.reduce((sum,x)=>sum+x.unit*BigInt(x.multiplier),0n)}}
+    function breakdown(e){return `<div class="estimate-body"><div class="estimate-period"><span>Período estimado</span><strong>${e.days} ${e.days===1?"diária":"diárias"}</strong></div>${e.components.map(x=>`<div class="component"><span>${safe(x.name)}<small>${x.multiplier} × ${money(x.unit)}${mode==="edit"?" · "+(x.preserved?"Preço preservado":"Preço atual"):""}</small></span><span class="money">${money(x.unit*BigInt(x.multiplier))}</span></div>`).join("")}<div class="estimate-total"><span>Estimativa · parcelas conhecidas</span><strong>${money(e.total)}</strong><p>Não é o valor final da locação.</p></div><div class="pending"><strong>A apurar na devolução</strong>${e.plan==="daily"?"<p>Quilômetros rodados · R$ 2,00/km</p>":e.plan==="controlled"?`<p>Excedente de km · franquia prevista de ${e.days*100} km</p>`:"<p>Quilometragem sem cobrança no plano Livre</p>"}<p>Reposição de combustível pelo preço vigente no retorno</p><p>Eventual atraso</p></div></div>`}
+    function syncFilters(){const old=$("vehicleFilter").value;$("vehicleFilter").innerHTML='<option value="">Todos os veículos</option>'+vehicles.map(v=>`<option value="${v.id}">${v.plate} · ${v.model}</option>`).join("");$("vehicleFilter").value=old}
+    function renderList(){
+      $("listScreen").hidden=false;$("formScreen").hidden=true;$("accessScreen").hidden=true;
+      visible=rentals.filter(r=>(!applied.vehicle||r.vehicle===applied.vehicle)&&(!applied.start||r.departure.slice(0,10)>=applied.start)&&(!applied.end||r.departure.slice(0,10)<=applied.end)).sort((a,b)=>b.departure.localeCompare(a.departure)||a.id.localeCompare(b.id));
+      const rows=visible.slice((page-1)*20,page*20);
+      $("resultCount").textContent=`${visible.length} ${visible.length===1?"aluguel":"aluguéis"} · ${rows.length} nesta página`;
+      $("pagination").hidden=visible.length<=20;$("pageLabel").textContent=`Página ${page} de ${Math.max(1,Math.ceil(visible.length/20))}`;$("previous").disabled=page===1;$("next").disabled=page*20>=visible.length;
+      if(fixture==="erro-lista"){$("listResult").innerHTML='<div class="alert" tabindex="-1" role="alert"><strong>Não foi possível carregar os aluguéis.</strong><p>Tente novamente. Referência: prototipo-consulta-01.</p><button class="btn" id="retryList">Tentar novamente</button></div>';$("resultCount").textContent="Consulta indisponível";$("listResult").firstElementChild.focus();$("retryList").onclick=()=>{fixture="";renderList()};return}
+      if(fixture==="carregando"){$("listResult").innerHTML='<p class="status" role="status">Carregando aluguéis…</p>';$("resultCount").textContent="Obtendo registros";return}
+      if(!rows.length){const filtered=Object.values(applied).some(Boolean);$("listResult").innerHTML=`<section class="empty">${icon("contract")}<h2>${filtered?"Nenhum aluguel encontrado":"Nenhum aluguel cadastrado"}</h2><p>${filtered?"Não há aluguéis para os filtros informados. Ajuste o período ou limpe os filtros.":"Registre a primeira locação para consultar os contratos da empresa."}</p><button class="btn ${filtered?"":"primary"}" id="emptyAction">${filtered?"Limpar filtros":"Nova locação"}</button></section>`;$("emptyAction").onclick=filtered?clearFilters:()=>openForm();return}
+      $("listResult").innerHTML=`<div class="table-wrap"><table><caption class="sr-only">Aluguéis da empresa; os valores são estimativas, não totais finais</caption><thead><tr><th scope="col">ID / estado</th><th scope="col">Condutor</th><th scope="col">Veículo</th><th scope="col">Plano</th><th scope="col">Saída / retorno previsto</th><th scope="col">Estimativa</th><th scope="col">Ações</th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong class="mono">${r.id}</strong><small><span class="badge">Em aberto</span></small></td><td><strong>${safe(r.driverSnapshot.name)}</strong><small>${safe(r.clientSnapshot.name)}</small></td><td><span class="plate">${r.vehicleSnapshot.plate}</span><small>${r.vehicleSnapshot.model}</small></td><td><strong>${r.planSnapshot.name}</strong><small>${r.vehicleSnapshot.group}</small></td><td><strong>${localTime(r.departure)}</strong><small>Previsto: ${localTime(r.expected)}</small></td><td><strong class="money">${money(storedEstimate(r).total)}</strong><small>Parcelas conhecidas</small></td><td><div class="row-actions"><button class="text-action" data-view="${r.id}" aria-label="Consultar contrato ${r.id}">Consultar contrato</button><button class="text-action" data-edit="${r.id}" aria-label="Editar ${r.id}">Editar</button></div></td></tr>`).join("")}</tbody></table></div>`;
+      document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>showContract(rentals.find(r=>r.id===b.dataset.view),b));
+      document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openForm(rentals.find(r=>r.id===b.dataset.edit)));
+    }
+    function clearFilters(){$("filters").reset();$("periodError").hidden=true;$("endFilter").removeAttribute("aria-invalid");applied={vehicle:"",state:"",start:"",end:""};page=1;fixture="";renderList()}
+    function syncDrivers(selected=""){
+      const list=drivers.filter(d=>d.client===$("client").value);
+      $("driver").innerHTML='<option value="">Selecione o condutor</option>'+list.map(d=>`<option value="${d.id}">${safe(d.name)}${d.id==="self"?" · próprio cliente":""}</option>`).join("");$("driver").value=selected;$("driver").disabled=!list.length;
+      updateDriverInfo();
+    }
+    function updateDriverInfo(){const d=drivers.find(x=>x.id===$("driver").value);$("driverInfo").innerHTML=icon("info")+`<span>${d?`<strong>CNH válida até ${d.valid.split("-").reverse().join("/")}</strong><br>CPF ${d.document} · CNH ${d.license}`:$("client").value&&!drivers.some(x=>x.client===$("client").value)?"Este cliente não possui condutor ativo. Cadastre o vínculo em Clientes e condutores.":"Selecione um condutor vinculado. A CNH precisa estar válida até o retorno previsto."}</span>`}
+    function syncVehicles(selected=""){const available=fixture==="sem-veiculos"?[]:vehicles.filter(v=>!unavailable.has(v.id)&&!rentals.some(r=>r.vehicle===v.id&&r.id!==current?.id));$("vehicle").innerHTML='<option value="">Selecione o veículo</option>'+available.map(v=>`<option value="${v.id}">${v.plate} · ${v.model} · ${v.group}</option>`).join("");$("vehicle").value=selected}
+    function renderPlans(selected=""){
+      const v=vehicles.find(x=>x.id===$("vehicle").value);$("vehicleInfo").hidden=!v;
+      if(v)$("vehicleInfo").innerHTML=icon("car")+`<span><strong>${v.group}</strong><br>${v.brand} · ${v.year} · ${v.color} · ${v.fuel} · tanque de ${v.capacity} L</span>`;
+      if(!v||fixture==="sem-planos"){$("plans").innerHTML=`<p class="muted small">${v?"Não há plano configurado neste grupo. Configure em Grupos e planos.":fixture==="sem-veiculos"?"Não há veículo disponível. Consulte Veículos antes de contratar.":"Selecione um veículo para consultar os planos do grupo."}</p>`;return}
+      $("plans").innerHTML=plans.map(p=>`<label class="plan"><input type="radio" name="plan" value="${p.id}" ${selected===p.id?"checked":""} aria-describedby="planError"><strong>${p.name}</strong><span class="price">${money(currentPrice(p.id,v.id))}<small> / dia</small></span><span class="detail">${p.detail}</span>${mode==="edit"?`<span class="provenance">${preservedPlan(p.id,v.id)?"Preço contratado preservado":"Preço atual · nova seleção"}</span>`:""}</label>`).join("");
+    }
+    function renderExtras(selected=[]){for(const insurance of [false,true]){const root=$(insurance?"insurance":"fees"),items=extras.filter(x=>x.insurance===insurance);if(!insurance&&fixture==="sem-taxas"){root.innerHTML='<p class="muted small">Nenhuma taxa cadastrada. Os adicionais são opcionais. Consulte Preços e serviços.</p>';continue}root.innerHTML=items.map(x=>{const absent=fixture==="seguro-ausente"&&x.id==="ins-third",preserved=mode==="edit"&&current.extras.includes(x.id),price=preserved?current.extraPrices[x.id]:x.cents;return `<label class="choice"><input type="checkbox" name="extra" value="${x.id}" ${selected.includes(x.id)&&!absent?"checked":""} ${absent?"disabled":""}><span class="description"><strong>${x.name}</strong><small>${absent?"Não configurado · consulte Preços e serviços":x.kind==="Fixa"?"Taxa fixa · cobrada uma vez":"Por diária da locação"}${mode==="edit"&&!absent?" · "+(preserved?"Preço preservado":"Preço atual"):""}</small></span><span class="unit">${absent?"—":money(price)}</span></label>`}).join("")}}
+    function clearErrors(){$("formError").hidden=true;for(const id of ["client","driver","vehicle","expected","odometer"]){$(id).removeAttribute("aria-invalid");$(id+"Error").hidden=true}document.querySelectorAll('input[name="plan"]').forEach(x=>x.removeAttribute("aria-invalid"));$("planError").hidden=true}
+    function errorSummary(messages,action=""){const e=$("formError");e.innerHTML="<strong>Não foi possível continuar.</strong><ul>"+messages.map(x=>"<li>"+safe(x)+"</li>").join("")+"</ul>"+action;e.hidden=false;e.focus()}
+    function validate(){clearErrors();const c=command(),errors=[];
+      function invalid(id,message){$(id).setAttribute("aria-invalid","true");$(id+"Error").textContent=message;$(id+"Error").hidden=false;errors.push(message)}
+      if(!c.client)invalid("client","Selecione o cliente contratante.");
+      const d=drivers.find(x=>x.id===c.driver);if(!d||d.client!==c.client)invalid("driver","Selecione um condutor vinculado ao cliente.");
+      if(!c.vehicle)invalid("vehicle","Selecione um veículo disponível.");
+      if(!c.plan){$("planError").textContent="Selecione um plano do grupo.";$("planError").hidden=false;document.querySelectorAll('input[name="plan"]').forEach(x=>x.setAttribute("aria-invalid","true"));errors.push("Selecione um plano do grupo.")}
+      if(!c.expected||!Number.isFinite(instant(c.expected))||instant(c.expected)<=instant(c.departure))invalid("expected","O retorno previsto deve ser posterior à saída.");
+      if(d&&c.expected&&d.valid<c.expected.slice(0,10))invalid("driver","A CNH precisa ser válida até o retorno previsto.");
+      if(!/^\d+$/.test(c.odometer))invalid("odometer","Informe um hodômetro inteiro não negativo.");
+      if(errors.length){errorSummary(errors);return null}return c;
+    }
+    function invalidate(){inputVersion++;estimate=null;$("confirm").disabled=true;$("stale").hidden=false}
+    function openForm(r=null){
+      if(uncertain)return;
+      mode=r?"edit":"create";current=r;estimate=null;$("rentalForm").reset();clearErrors();$("success").hidden=true;$("listScreen").hidden=true;$("accessScreen").hidden=true;$("formScreen").hidden=false;$("editNotice").hidden=!r;$("editBadge").hidden=!r;$("stale").hidden=true;$("uncertain").hidden=true;
+      $("formEyebrow").textContent=r?"Ajuste de contrato · "+r.id:"Contratação";$("formTitle").textContent=r?"Editar locação":"Nova locação";$("formIntro").textContent=r?"Ajuste o contrato em aberto sem perder os valores já contratados.":"Defina o contrato, confira a estimativa e confirme a saída do veículo.";
+      $("client").innerHTML='<option value="">Selecione o cliente</option>'+clients.map(c=>`<option value="${c.id}">${safe(c.name)} · ${c.type}</option>`).join("");
+      $("client").value=r?.client||"";syncDrivers(r?.driver||"");syncVehicles(r?.vehicle||"");renderPlans(r?.plan||"");renderExtras(r?.extras||[]);
+      $("departure").value=r?localTime(r.departure):"No momento da confirmação";$("departureHint").textContent=r?"Saída original preservada · São Paulo.":"Horário registrado pelo servidor. Não é uma reserva.";
+      $("expected").value=r?.expected||"2026-11-25T10:00";$("odometer").value=r?.odometer||"";$("confirm").textContent=r?"Salvar alterações":"Confirmar locação";$("saveHelp").textContent=r?"Salvar gera uma revisão. O início original é preservado.":"A locação só começa ao confirmar. A saída será registrada nesse momento.";
+      $("confirm").disabled=true;$("estimateContent").innerHTML='<div class="estimate-placeholder">'+icon("contract")+'<p>Preencha os dados e calcule para conferir as parcelas conhecidas.</p></div>';
+      if(r){estimate=calculateFixture(command());$("estimateContent").innerHTML=breakdown(estimate);$("confirm").disabled=false}
+      $("formTitle").focus();window.scrollTo(0,0);
+    }
+    function fillCreate(){openForm();$("client").value=fixture==="sem-condutor"?"empty":fixture==="cnh-vencida"?"pj":"pf";syncDrivers(fixture==="cnh-vencida"?"expired":fixture==="sem-condutor"?"":"self");syncVehicles(fixture==="sem-veiculos"?"":"v4");renderPlans("controlled");$("odometer").value="18420";renderExtras(extras.map(x=>x.id));if(fixture!=="sem-condutor"&&fixture!=="cnh-vencida"&&fixture!=="sem-planos"&&fixture!=="sem-veiculos"){estimate=calculateFixture(command());$("estimateContent").innerHTML=breakdown(estimate);$("confirm").disabled=false}}
+    function showContract(r,button){viewed=r;opener=button||document.activeElement;$("contractTitle").textContent=r?"Locação "+r.id:"Contrato não encontrado";$("editContract").hidden=!r;
+      if(!r){$("contractContent").innerHTML='<div class="alert" role="alert">Contrato não encontrado. Nenhum dado protegido foi exibido.</div>'}
+      else{const c=r.clientSnapshot,d=r.driverSnapshot,v=r.vehicleSnapshot;$("contractContent").innerHTML=`<div class="contract-meta"><span class="badge">Em aberto</span><span class="mono">Revisão ${r.revision} · ${r.id}</span></div><section><div class="contract-title"><h3>Dados do contrato</h3><small>Preservados na contratação</small></div><dl class="definition"><div><dt>Cliente contratante</dt><dd>${safe(c.name)}<small>${c.type} · ${c.document}</small></dd></div><div><dt>Condutor</dt><dd>${safe(d.name)}<small>CNH ${d.license} · válida até ${d.valid.split("-").reverse().join("/")}</small></dd></div><div><dt>Veículo</dt><dd>${v.plate} · ${v.model}<small>${v.brand} · ${v.color} · ${v.year} · ${v.group}</small></dd></div><div><dt>Plano</dt><dd>${r.planSnapshot.name}<small>${money(r.planCents)} por dia · ${r.planSnapshot.detail}</small></dd></div><div><dt>Saída original</dt><dd>${localTime(r.departure)}<small>Horário de São Paulo</small></dd></div><div><dt>Retorno previsto</dt><dd>${localTime(r.expected)}<small>Horário de São Paulo</small></dd></div><div><dt>Hodômetro inicial</dt><dd>${safe(r.odometer)} km</dd></div><div><dt>Tanque na saída</dt><dd>Cheio · ${v.capacity} L<small>${v.fuel}</small></dd></div></dl></section><section class="card"><header class="estimate-head"><span class="eyebrow">Valores contratados</span><h3>Demonstrativo estimado</h3></header>${breakdown(storedEstimate(r))}<div class="guarantee"><div><span>Garantia · caução fixa</span><strong>R$ 1.000,00</strong></div><p>Não integra o custo e não é abatida da locação.</p></div></section>`}
+      $("contractDialog").showModal();
+    }
+    function confirmFixture(c){let r;if(mode==="edit"){revisionHistory.push(current);r=capture({...c,id:current.id,revision:current.revision+1,planCents:currentPrice(c.plan,c.vehicle),extraPrices:Object.fromEntries(c.extras.map(id=>[id,current.extras.includes(id)?current.extraPrices[id]:extras.find(x=>x.id===id).cents]))});rentals=rentals.map(x=>x.id===r.id?r:x)}
+      else{r=capture({...c,id:"LOC-"+String(rentals.length+1).padStart(4,"0"),revision:1,planCents:currentPrice(c.plan,c.vehicle),extraPrices:Object.fromEntries(c.extras.map(id=>[id,extras.find(x=>x.id===id).cents]))});rentals.push(r)}
+      uncertain=false;pendingIntent=null;$("uncertain").hidden=true;for(const b of $("rentalForm").querySelectorAll("input,select,button"))b.disabled=false;$("backToList").disabled=false;syncFilters();page=1;applied={vehicle:"",state:"",start:"",end:""};$("filters").reset();fixture="";renderList();$("success").hidden=false;$("success").innerHTML=`<strong>${mode==="edit"?"Alterações salvas":"Locação confirmada"} · ${r.id}</strong><p>Em aberto · revisão ${r.revision} · estimativa contratada de ${money(storedEstimate(r).total)}. A prévia não congelava os valores; esta é a composição registrada.</p><button class="text-action" id="successContract">Consultar contrato</button>`;$("successContract").onclick=()=>showContract(r,$("successContract"));$("listTitle").focus();window.scrollTo(0,0);
+    }
+    $("newRental").onclick=()=>openForm();$("backToList").onclick=()=>{if(!uncertain){fixture="";renderList();$("newRental").focus()}};
+    $("navRentals").onclick=e=>{e.preventDefault();if(uncertain){$("uncertain").focus();return}fixture="";renderList();$("listTitle").focus()};
+    $("client").onchange=()=>{syncDrivers();invalidate()};$("driver").onchange=()=>{updateDriverInfo();invalidate()};
+    $("vehicle").onchange=()=>{renderPlans("");invalidate()};
+    $("rentalForm").addEventListener("input",()=>{if(!uncertain)invalidate()});
+    $("rentalForm").addEventListener("change",()=>{if(!uncertain)invalidate()});
+    $("calculate").onclick=()=>{
+      if(uncertain)return;const c=validate();if(!c)return;const version=inputVersion;$("calculate").disabled=true;$("confirm").disabled=true;$("estimateContent").innerHTML='<p class="status" role="status">Calculando estimativa…</p>';
+      setTimeout(()=>{$("calculate").disabled=false;if(version!==inputVersion){$("estimateContent").innerHTML='<div class="estimate-placeholder"><p>Dados alterados durante o cálculo. Calcule novamente.</p></div>';return}if(fixture==="erro-calculo"){fixture="";estimate=null;$("confirm").disabled=true;errorSummary(["Não foi possível calcular. Os dados foram mantidos. Tente calcular novamente. Referência: prototipo-calculo-01."]);$("estimateContent").innerHTML='<div class="estimate-placeholder"><p>Estimativa indisponível. Calcule novamente para continuar.</p></div>';return}estimate=calculateFixture(c);$("estimateContent").innerHTML=breakdown(estimate);$("stale").hidden=true;$("confirm").disabled=false},300);
+    };
+    $("rentalForm").onsubmit=e=>{
+      e.preventDefault();if(uncertain||!estimate)return;const c=validate();if(!c)return;
+      if(fixture==="conflito-veiculo"){fixture="";unavailable.add(c.vehicle);syncVehicles("");renderPlans();invalidate();errorSummary(["Este veículo foi ocupado por outra locação. Selecione outro veículo e calcule novamente."]);return}
+      if(fixture==="conflito-versao"){errorSummary(["Este contrato foi atualizado por outra operação. Recarregue antes de salvar; seus ajustes não foram gravados."],'<div class="actions"><button class="btn" type="button" id="reloadContract">Recarregar contrato</button></div>');$("confirm").disabled=true;$("reloadContract").onclick=()=>{fixture="";openForm(current)};return}
+      if(fixture==="estado-invalido"){errorSummary(["Este contrato não está Em aberto e não admite edição. Nenhuma alteração foi gravada."]);$("confirm").disabled=true;return}
+      if(fixture==="incerto"){pendingIntent={...c,extras:[...c.extras]};uncertain=true;$("uncertain").hidden=false;for(const control of $("rentalForm").querySelectorAll("input,select,button"))control.disabled=true;$("backToList").disabled=true;$("uncertain").focus();return}
+      confirmFixture(c);
+    };
+    $("verify").onclick=()=>{if(!pendingIntent)return;const c=pendingIntent;fixture="";confirmFixture(c)};
+    window.addEventListener("beforeunload",e=>{if(uncertain){e.preventDefault();e.returnValue=""}});
+    $("filters").onsubmit=e=>{e.preventDefault();if($("startFilter").value&&$("endFilter").value&&$("startFilter").value>$("endFilter").value){$("periodError").hidden=false;$("endFilter").setAttribute("aria-invalid","true");$("endFilter").focus();return}$("periodError").hidden=true;$("endFilter").removeAttribute("aria-invalid");applied={vehicle:$("vehicleFilter").value,state:$("stateFilter").value,start:$("startFilter").value,end:$("endFilter").value};page=1;renderList()};
+    $("clearFilters").onclick=clearFilters;$("previous").onclick=()=>{page--;renderList()};$("next").onclick=()=>{page++;renderList()};
+    $("closeContract").onclick=()=>$("contractDialog").close();$("contractDialog").addEventListener("close",()=>opener?.focus());
+    $("editContract").onclick=()=>{$("contractDialog").close();openForm(viewed)};
+    function start(){fixture=decodeURIComponent(location.hash.slice(1))||"lista";syncFilters();
+      if(fixture==="vazio")rentals=[];
+      if(fixture==="paginacao"){for(let i=4;i<=22;i++){const v={...vehicles[0],id:"v"+(i+10),plate:"FIC-"+String(i).padStart(3,"0")+"A"};vehicles.push(v);rentals.push(capture({...rentals[0],id:"LOC-"+String(i).padStart(4,"0"),vehicle:v.id}))}syncFilters()}
+      if(fixture==="sessao-expirada"||fixture==="acesso-negado"){$("listScreen").hidden=true;$("accessScreen").hidden=false;$("accessTitle").textContent=fixture==="sessao-expirada"?"Sessão expirada":"Acesso negado";$("accessMessage").textContent=fixture==="sessao-expirada"?"Entre novamente para consultar seus contratos. Este protótipo não realiza autenticação.":"Você não tem acesso a esta operação. Nenhum dado protegido foi apresentado.";$("accessTitle").focus();return}
+      if(fixture==="editar"||fixture==="conflito-versao"||fixture==="estado-invalido"){openForm(rentals[0]);return}
+      if(["nova-preenchida","sem-condutor","cnh-vencida","sem-veiculos","sem-planos","seguro-ausente","sem-taxas","incerto","conflito-veiculo","erro-calculo"].includes(fixture)){fillCreate();return}
+      if(fixture==="nova"){openForm();return}
+      renderList();if(fixture==="contrato")showContract(rentals[0],$("newRental"));if(fixture==="contrato-inexistente")showContract(null,$("newRental"));
+    }
+    start();
+  </script>
+</body>
+</html>
