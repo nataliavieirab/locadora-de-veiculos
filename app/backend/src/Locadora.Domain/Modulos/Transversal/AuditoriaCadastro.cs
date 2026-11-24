@@ -1,7 +1,7 @@
 namespace Locadora.Domain.Modulos.Transversal;
 
 public enum AcaoCadastro { Criacao, Alteracao, Exclusao }
-public enum TipoCadastro { Grupo, Plano, Veiculo, Cliente, VinculoCliente, Condutor, TaxaServico, PrecoSeguro, PrecoCombustivel }
+public enum TipoCadastro { Grupo, Plano, Veiculo, Cliente, VinculoCliente, Condutor, TaxaServico, PrecoSeguro, PrecoCombustivel, Aluguel }
 
 public sealed class AuditoriaCadastro : IEntidadeEmpresa
 {
@@ -11,6 +11,7 @@ public sealed class AuditoriaCadastro : IEntidadeEmpresa
         "placa", "marca", "cor", "modelo", "combustivel", "capacidadeLitros", "ano", "tipo",
         "cpf", "cnpj", "rg", "cnh", "telefone", "email", "endereco", "clienteId",
         "clientePfId", "clientePjId", "validadeCnh", "preco", "precoUnitario", "inicioVigenciaUtc", "excluidoEmUtc",
+        "condutorId", "veiculoId", "planoId", "retornoPrevistoUtc", "hodometroInicial", "itens", "revisao",
     ];
 
     public Guid Id { get; private set; }
