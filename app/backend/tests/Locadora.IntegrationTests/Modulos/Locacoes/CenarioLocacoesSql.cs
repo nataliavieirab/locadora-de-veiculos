@@ -17,7 +17,7 @@ internal sealed class CenarioLocacoesSql : IAsyncDisposable
     public LocadoraDbContext Banco { get; }
     public DadosContratacao Dados { get; }
 
-    private CenarioLocacoesSql(ContextoEmpresa contexto, LocadoraDbContext banco, DadosContratacao dados)
+    internal CenarioLocacoesSql(ContextoEmpresa contexto, LocadoraDbContext banco, DadosContratacao dados)
         => (Contexto, Banco, Dados) = (contexto, banco, dados);
 
     public static async Task<CenarioLocacoesSql> CriarAsync(string? conexao = null)

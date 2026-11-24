@@ -22,7 +22,7 @@ internal static class MapeamentosLocacoes
         aluguel.HasBaseType((Type?)null);
         aluguel.ToTable("Alugueis", t =>
         {
-            t.HasCheckConstraint("CK_Alugueis_Dados", "[Estado] = 0 AND [RetornoPrevistoUtc] > [SaidaUtc] AND [HodometroInicial] >= 0 AND [NumeroRevisaoAtual] > 0 AND [AlteradoEmUtc] >= [CriadoEmUtc] AND [SaidaUtc] = [CriadoEmUtc]");
+            t.HasCheckConstraint("CK_Alugueis_Dados", "[Estado] IN (0,1) AND ([ExcluidoEmUtc] IS NULL OR [Estado] = 1) AND [RetornoPrevistoUtc] > [SaidaUtc] AND [HodometroInicial] >= 0 AND [NumeroRevisaoAtual] > 0 AND [AlteradoEmUtc] >= [CriadoEmUtc] AND [SaidaUtc] = [CriadoEmUtc]");
         });
         aluguel.HasKey(a => a.Id);
         aluguel.Property(a => a.Id).ValueGeneratedNever();
@@ -38,6 +38,7 @@ internal static class MapeamentosLocacoes
         aluguel.HasIndex(a => new { a.EmpresaId, a.Estado, a.SaidaUtc, a.Id });
 
         var revisao = Imutavel<RevisaoContrato>(builder, "RevisoesContrato");
+        revisao.HasAlternateKey(r => new { r.EmpresaId, r.AluguelId, r.Id });
         revisao.HasIndex(r => new { r.EmpresaId, r.AluguelId, r.Numero }).IsUnique();
         aluguel.HasMany(a => a.Revisoes).WithOne().HasForeignKey(r => new { r.EmpresaId, r.AluguelId })
             .HasPrincipalKey(a => new { a.EmpresaId, a.Id }).OnDelete(DeleteBehavior.NoAction);
@@ -149,8 +150,75 @@ internal static class MapeamentosLocacoes
             .HasPrincipalKey(u => new { u.EmpresaId, u.Id }).OnDelete(DeleteBehavior.NoAction);
         comando.HasOne<RevisaoContrato>().WithMany().HasForeignKey(c => new { c.EmpresaId, c.RevisaoId })
             .HasPrincipalKey(r => new { r.EmpresaId, r.Id }).OnDelete(DeleteBehavior.NoAction);
+        comando.HasOne<DemonstrativoFinal>().WithMany().HasForeignKey(c => new { c.EmpresaId, c.RevisaoId, c.DemonstrativoFinalId })
+            .HasPrincipalKey(f => new { f.EmpresaId, f.RevisaoId, f.Id }).OnDelete(DeleteBehavior.NoAction);
         comando.ToTable(t => t.HasCheckConstraint("CK_ComandosIdempotentes_Dados",
-            "[Operacao] = N'criar-aluguel' AND LEN([HashComando]) = 64 AND [HashComando] NOT LIKE '%[^0-9A-F]%' COLLATE Latin1_General_100_BIN2 AND DATALENGTH([VersaoOriginal]) = 8"));
+            "(([Operacao] = N'criar-aluguel' AND [DemonstrativoFinalId] IS NULL) OR ([Operacao] = N'devolver-aluguel' AND [DemonstrativoFinalId] IS NOT NULL)) AND LEN([HashComando]) = 64 AND [HashComando] NOT LIKE '%[^0-9A-F]%' COLLATE Latin1_General_100_BIN2 AND DATALENGTH([VersaoOriginal]) = 8"));
+
+        var final = Imutavel<DemonstrativoFinal>(builder, "DemonstrativosFinais");
+        final.HasAlternateKey(f => new { f.EmpresaId, f.RevisaoId, f.Id });
+        aluguel.HasOne(a => a.Devolucao).WithOne().HasForeignKey<DemonstrativoFinal>(f => new { f.EmpresaId, f.AluguelId })
+            .HasPrincipalKey<Aluguel>(a => new { a.EmpresaId, a.Id }).OnDelete(DeleteBehavior.NoAction);
+        final.HasOne<RevisaoContrato>().WithMany().HasForeignKey(f => new { f.EmpresaId, f.AluguelId, f.RevisaoId })
+            .HasPrincipalKey(r => new { r.EmpresaId, r.AluguelId, r.Id }).OnDelete(DeleteBehavior.NoAction);
+        final.HasOne<PrecoCombustivel>().WithMany().HasForeignKey(f => new { f.EmpresaId, f.PrecoCombustivelId })
+            .HasPrincipalKey(p => new { p.EmpresaId, p.Id }).OnDelete(DeleteBehavior.NoAction);
+        final.HasOne<Plano>().WithMany().HasForeignKey(f => new { f.EmpresaId, f.PlanoId })
+            .HasPrincipalKey(p => new { p.EmpresaId, p.Id }).OnDelete(DeleteBehavior.NoAction);
+        final.Property(f => f.VersaoRegra).HasMaxLength(64).IsRequired();
+        final.Property(f => f.LitrosRestantes).HasPrecision(12, 3);
+        final.Property(f => f.CapacidadeLitros).HasPrecision(12, 3);
+        final.Property(f => f.PrecoCombustivel).HasPrecision(19, 6);
+        final.Property(f => f.TermoDiariasBruto).HasPrecision(28, 9);
+        final.Property(f => f.TermoKmBruto).HasPrecision(28, 9);
+        final.Property(f => f.TotalFinal).HasPrecision(19, 2);
+        final.Property(f => f.Caucao).HasPrecision(19, 2);
+        final.ComplexProperty(f => f.Plano, p =>
+        {
+            p.IsRequired();
+            p.Property(s => s.PrecoDiario).HasPrecision(19, 6);
+            p.Property(s => s.PrecoKm).HasPrecision(19, 6);
+            p.Property(s => s.PrecoKmExcedente).HasPrecision(19, 6);
+        });
+        final.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_DemonstrativosFinais_Dados",
+                "[RetornoPrevistoUtc] > [SaidaUtc] AND [RetornoRealUtc] >= [SaidaUtc] AND [HodometroInicial] >= 0 AND [HodometroFinal] >= [HodometroInicial] AND [Quilometros] = [HodometroFinal] - [HodometroInicial] AND " +
+                "[LitrosRestantes] >= 0 AND [CapacidadeLitros] > 0 AND [LitrosRestantes] <= [CapacidadeLitros] AND [TipoCombustivel] IN (0,1,2,3) AND [PrecoCombustivel] >= 0 AND [InicioVigenciaCombustivelUtc] <= [RetornoRealUtc] AND " +
+                "[Diarias] >= 1 AND ([FranquiaTotalKm] IS NULL OR [FranquiaTotalKm] >= 0) AND ([ExcedenteKm] IS NULL OR [ExcedenteKm] >= 0) AND [TermoDiariasBruto] >= 0 AND [TermoKmBruto] >= 0 AND [TotalFinal] >= 0 AND [Caucao] = 1000 AND [CalculadoEmUtc] >= [SaidaUtc] AND [RegistradoEmUtc] >= [CalculadoEmUtc]");
+            t.HasCheckConstraint("CK_DemonstrativosFinais_Plano", ParametrosPlano);
+        });
+
+        var itemDevolucao = Imutavel<ItemDevolucao>(builder, "ItensDevolucao");
+        final.HasMany(f => f.Itens).WithOne().HasForeignKey(i => new { i.EmpresaId, i.DemonstrativoFinalId })
+            .HasPrincipalKey(f => new { f.EmpresaId, f.Id }).OnDelete(DeleteBehavior.NoAction);
+        final.Navigation(f => f.Itens).HasField("_itens").UsePropertyAccessMode(PropertyAccessMode.Field);
+        itemDevolucao.HasOne<TaxaServico>().WithMany().HasForeignKey(i => new { i.EmpresaId, i.TaxaServicoId })
+            .HasPrincipalKey(t => new { t.EmpresaId, t.Id }).OnDelete(DeleteBehavior.NoAction);
+        itemDevolucao.HasIndex(i => new { i.EmpresaId, i.DemonstrativoFinalId, i.TaxaServicoId }).IsUnique();
+        itemDevolucao.Property(i => i.Nome).HasMaxLength(200).IsRequired();
+        itemDevolucao.Property(i => i.PrecoUnitario).HasPrecision(19, 6);
+        itemDevolucao.Property(i => i.VersaoTaxa).HasField("_versaoTaxa").HasMaxLength(8).IsFixedLength().IsRequired().ValueGeneratedNever();
+        itemDevolucao.ToTable(t => t.HasCheckConstraint("CK_ItensDevolucao_Dados",
+            "[PrecoUnitario] >= 0 AND [Modalidade] IN (0,1) AND [OrigemInclusao] = 2 AND DATALENGTH([VersaoTaxa]) = 8"));
+
+        var componenteFinal = Imutavel<ComponenteFinal>(builder, "ComponentesFinal");
+        final.HasMany(f => f.Componentes).WithOne().HasForeignKey(c => new { c.EmpresaId, c.DemonstrativoFinalId })
+            .HasPrincipalKey(f => new { f.EmpresaId, f.Id }).OnDelete(DeleteBehavior.NoAction);
+        final.Navigation(f => f.Componentes).HasField("_componentes").UsePropertyAccessMode(PropertyAccessMode.Field);
+        componenteFinal.HasIndex(c => new { c.EmpresaId, c.DemonstrativoFinalId, c.Ordem }).IsUnique();
+        componenteFinal.Property(c => c.Nome).HasMaxLength(200).IsRequired();
+        componenteFinal.Property(c => c.Quantidade).HasPrecision(12, 3);
+        componenteFinal.Property(c => c.PrecoUnitario).HasPrecision(19, 6);
+        componenteFinal.Property(c => c.ValorBruto).HasPrecision(28, 9);
+        componenteFinal.Property(c => c.ValorArredondado).HasPrecision(19, 2);
+        componenteFinal.ToTable(t => t.HasCheckConstraint("CK_ComponentesFinal_Dados",
+            "[Ordem] >= 0 AND [Quantidade] >= 0 AND [PrecoUnitario] >= 0 AND [ValorBruto] >= 0 AND [ValorArredondado] >= 0 AND " +
+            "(([Categoria] = 0 AND [OrigemId] IS NOT NULL AND [TipoSeguro] IS NULL AND [Modalidade] IS NULL AND [OrigemInclusao] IS NULL AND [Ordem] = 0) OR " +
+            "([Categoria] = 1 AND [OrigemId] IS NOT NULL AND [TipoSeguro] IS NULL AND [Modalidade] IS NOT NULL AND [Modalidade] IN (0,1) AND [OrigemInclusao] IS NOT NULL AND [OrigemInclusao] IN (0,1,2)) OR " +
+            "([Categoria] = 2 AND [OrigemId] IS NOT NULL AND [TipoSeguro] IS NOT NULL AND [TipoSeguro] IN (0,1) AND [Modalidade] = 1 AND [OrigemInclusao] IS NOT NULL AND [OrigemInclusao] IN (0,1)) OR " +
+            "([Categoria] = 3 AND [OrigemId] IS NOT NULL AND [TipoSeguro] IS NULL AND [Modalidade] IS NULL AND [OrigemInclusao] IS NULL) OR " +
+            "([Categoria] = 4 AND [OrigemId] IS NULL AND [TipoSeguro] IS NULL AND [Modalidade] IS NULL AND [OrigemInclusao] IS NULL))"));
     }
 
     private static EntityTypeBuilder<T> Imutavel<T>(ModelBuilder builder, string tabela) where T : class, IEntidadeEmpresa
