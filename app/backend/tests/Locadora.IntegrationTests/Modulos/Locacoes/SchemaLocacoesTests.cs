@@ -21,7 +21,7 @@ public sealed class SchemaLocacoesTests
             await using (var inicial = AmbienteIntegracao.CriarContexto(conexao))
             {
                 var migrations = inicial.Database.GetMigrations().ToArray();
-                var f2 = migrations.Last(m => !m.EndsWith("_ContratacaoFase3", StringComparison.Ordinal));
+                var f2 = migrations[Array.FindIndex(migrations, m => m.EndsWith("_ContratacaoFase3", StringComparison.Ordinal)) - 1];
                 await inicial.GetService<IMigrator>().MigrateAsync(f2);
             }
             await using var cenario = await CenarioLocacoesSql.CriarAsync(conexao);
@@ -125,7 +125,7 @@ public sealed class SchemaLocacoesTests
                 await banco.Database.MigrateAsync();
             await using var cenario = await CenarioLocacoesSql.CriarAsync(conexao);
             var migrations = cenario.Banco.Database.GetMigrations().ToArray();
-            var f2 = migrations.Last(m => !m.EndsWith("_ContratacaoFase3", StringComparison.Ordinal));
+            var f2 = migrations[Array.FindIndex(migrations, m => m.EndsWith("_ContratacaoFase3", StringComparison.Ordinal)) - 1];
             await cenario.Banco.GetService<IMigrator>().MigrateAsync(f2);
             Assert.AreEqual(1, await cenario.Banco.Clientes.CountAsync());
             await cenario.Banco.Database.MigrateAsync();

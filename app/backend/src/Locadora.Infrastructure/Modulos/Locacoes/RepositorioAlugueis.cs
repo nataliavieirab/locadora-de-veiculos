@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Locadora.Infrastructure.Modulos.Locacoes;
 
-public sealed class RepositorioAlugueis(LocadoraDbContext banco) : IRepositorioAlugueis
+public sealed class RepositorioAlugueis(LocadoraDbContext banco) : IRepositorioFechamentoAluguel
 {
     public Task<Aluguel?> ConsultarAsync(Guid id, CancellationToken cancelamento)
         => banco.Alugueis.Include(a => a.Revisoes).ThenInclude(r => r.Itens)
@@ -13,8 +13,25 @@ public sealed class RepositorioAlugueis(LocadoraDbContext banco) : IRepositorioA
             .AsSplitQuery().SingleOrDefaultAsync(a => a.Id == id, cancelamento);
 
     public Task<ComandoIdempotente?> ComandoAsync(Guid contaId, Guid chave, CancellationToken cancelamento)
+        => ComandoAsync(contaId, "criar-aluguel", chave, cancelamento);
+
+    public Task<ComandoIdempotente?> ComandoAsync(Guid contaId, string operacao, Guid chave, CancellationToken cancelamento)
         => banco.ComandosIdempotentes.AsNoTracking().SingleOrDefaultAsync(c =>
-            c.ContaId == contaId && c.Chave == chave && c.Operacao == "criar-aluguel", cancelamento);
+            c.ContaId == contaId && c.Chave == chave && c.Operacao == operacao, cancelamento);
+
+    public Task<Aluguel?> ConsultarIncluindoOcultoAsync(Guid id, CancellationToken cancelamento)
+        => banco.Alugueis.IgnoreQueryFilters(["ExclusaoLogicaAluguel"])
+            .Include(a => a.Revisoes).ThenInclude(r => r.Itens)
+            .Include(a => a.Revisoes).ThenInclude(r => r.Estimativa).ThenInclude(e => e.Componentes)
+            .Include(a => a.Devolucao).ThenInclude(f => f!.Itens)
+            .Include(a => a.Devolucao).ThenInclude(f => f!.Componentes)
+            .AsSplitQuery().SingleOrDefaultAsync(a => a.Id == id, cancelamento);
+
+    public Task<DemonstrativoFinal?> FinalAsync(Guid id, CancellationToken cancelamento)
+        => banco.DemonstrativosFinais.AsNoTracking().Where(f => f.Id == id
+                && banco.Alugueis.IgnoreQueryFilters(new[] { "ExclusaoLogicaAluguel" })
+                    .Any(a => a.Id == f.AluguelId && a.EmpresaId == f.EmpresaId))
+            .Include(f => f.Itens).Include(f => f.Componentes).AsSplitQuery().SingleOrDefaultAsync(cancelamento);
 
     public Task<RevisaoContrato> RevisaoAsync(Guid id, CancellationToken cancelamento)
         => banco.RevisoesContrato.AsNoTracking().Include(r => r.Itens).Include(r => r.Estimativa)
