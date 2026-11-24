@@ -1,5 +1,6 @@
 using Locadora.Domain.Modulos.Acesso;
 using Locadora.Domain.Modulos.FrotaPrecos;
+using Locadora.Domain.Modulos.Locacoes;
 using Locadora.Domain.Modulos.Transversal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -54,9 +55,17 @@ public sealed class GuardaEscritaEmpresa : SaveChangesInterceptor
                 continue;
             }
 
-            if (entrada.Entity is PrecoCombustivel or AuditoriaCadastro && entrada.State != EntityState.Added)
+            if (entrada.Entity is PrecoCombustivel or AuditoriaCadastro or RevisaoContrato or ItemContratado
+                or DemonstrativoEstimado or ComponenteEstimativa or ComandoIdempotente
+                && entrada.State != EntityState.Added)
             {
                 throw new InvalidOperationException("Registros históricos não podem ser alterados ou removidos.");
+            }
+
+            if (entrada.Entity is Aluguel && (entrada.State == EntityState.Deleted
+                || entrada.State == EntityState.Modified && entrada.Property(nameof(Aluguel.SaidaUtc)).IsModified))
+            {
+                throw new InvalidOperationException("O aluguel não permite remoção nem alteração da saída original.");
             }
 
             if (entrada.Entity is not IEntidadeEmpresa entidade)
