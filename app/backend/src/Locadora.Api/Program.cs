@@ -36,7 +36,7 @@ builder.Services.AddCors(opcoes =>
     {
         politica.WithOrigins(configuracao.Origem)
             .WithMethods(HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Delete, HttpMethods.Options)
-            .WithHeaders("Authorization", "Content-Type", "If-Match")
+            .WithHeaders("Authorization", "Content-Type", "If-Match", "Idempotency-Key")
             .WithExposedHeaders("ETag")
             .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
     });
