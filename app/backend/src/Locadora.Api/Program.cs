@@ -28,6 +28,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             configuracao.Chaves,
             configuracao.Emissor,
             configuracao.Audiencia);
+        opcoes.Events = new JwtBearerEvents
+        {
+            OnChallenge = contexto =>
+            {
+                if (!contexto.Request.Path.StartsWithSegments("/api/v1/alugueis"))
+                    return Task.CompletedTask;
+                contexto.HandleResponse();
+                contexto.Response.Headers.WWWAuthenticate = "Bearer";
+                return ResponderAcessoLocacoes(contexto.HttpContext, 401, "Sessão inválida", "sessao_invalida");
+            },
+            OnForbidden = contexto => contexto.Request.Path.StartsWithSegments("/api/v1/alugueis")
+                ? ResponderAcessoLocacoes(contexto.HttpContext, 403, "Acesso negado", "acesso_negado")
+                : Task.CompletedTask,
+        };
     });
 builder.Services.AddAuthorization();
 builder.Services.AddCors(opcoes =>
@@ -117,6 +131,14 @@ app.MapControllers();
 app.MapOpenApi();
 app.MapGet("/health", () => Results.Json(new { status = "ok" }));
 app.Run();
+
+static Task ResponderAcessoLocacoes(HttpContext contexto, int status, string titulo, string codigo)
+{
+    contexto.Response.StatusCode = status;
+    contexto.Response.ContentType = "application/problem+json";
+    contexto.Response.Headers.CacheControl = "no-store";
+    return contexto.Response.WriteAsync(ProblemaJson.Serializar(status, titulo, codigo, contexto.TraceIdentifier, null));
+}
 
 static RateLimitPartition<string> Particionar(HttpContext http, int quantidade, TimeSpan janela)
 {

@@ -11,6 +11,8 @@ public static class ValidacaoTransporte
         "endereco.rua", "endereco.numero", "page", "pageSize", "username", "password", "refreshToken",
         "grupoId", "modalidade", "precoDiario", "precoKm", "franquiaDiariaKm", "precoKmExcedente",
         "preco", "precoUnitario",
+        "retornoReal", "hodometroFinal", "litrosRestantes", "taxasAdicionaisIds", "versoesAceitas",
+        "incluirOcultos", "estado", "veiculoId", "saidaDe", "saidaAte",
     ];
 
     public static IActionResult Responder(ActionContext contexto)

@@ -52,9 +52,16 @@ public static class Dependencias
         services.AddScoped<CasosSelecoesLocacao>();
         services.AddScoped<IContextoLocacao>(provedor => provedor.GetRequiredService<ContextoEmpresa>());
         services.AddScoped<IRepositorioAlugueis, RepositorioAlugueis>();
+        services.AddScoped<IRepositorioFechamentoAluguel>(provedor =>
+            (RepositorioAlugueis)provedor.GetRequiredService<IRepositorioAlugueis>());
+        services.AddScoped<IConsultasDevolucao, ConsultasDevolucao>();
+        services.AddScoped<PreviaDevolucao>();
+        services.AddScoped<IOperacoesDevolucao, CasosDevolucao>();
+        services.AddScoped<IOcultacaoAluguel, CasosOcultacaoAluguel>();
         services.AddScoped<CasosContratacao>();
         services.AddScoped<CasosEdicaoAluguel>();
         services.AddScoped<IConsultasAluguel, ConsultasAluguel>();
+        services.AddScoped<IConsultasHistoricoAluguel>(provedor => provedor.GetRequiredService<IConsultasAluguel>());
         services.AddScoped<CasosConsultaAluguel>();
         services.AddDbContext<LocadoraDbContext>((provedor, opcoes) =>
         {

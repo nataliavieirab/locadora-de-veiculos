@@ -14,15 +14,19 @@ public sealed class CasosConsultaAluguel(IConsultasAluguel consultas)
         return consultas.ListarAsync(paginacao, filtro, cancelamento);
     }
 
-    public Task<ResultadoContratacao> ConsultarAsync(Guid id, CancellationToken cancelamento)
+    public Task<ResultadoConsultaAluguel> ConsultarAsync(Guid id, CancellationToken cancelamento)
         => consultas.ConsultarAsync(id, cancelamento);
+
+    public Task<ResultadoConsultaAluguel> ConsultarAsync(Guid id, bool incluirOcultos, CancellationToken cancelamento)
+        => consultas.ConsultarAsync(id, incluirOcultos, cancelamento);
+
+    public Task<Pagina<ReferenciaVeiculoHistorico>> ReferenciasVeiculosAsync(Paginacao paginacao,
+        bool incluirOcultos, CancellationToken cancelamento)
+        => consultas.ReferenciasVeiculosAsync(paginacao, incluirOcultos, cancelamento);
 
     private static void ValidarEstado(FiltroConsultaAlugueis filtro)
     {
-        if (filtro.Estado is not null and not EstadoAluguel.EmAberto)
-        {
-            throw new ValidacaoCadastroException("estado", "Informe um estado válido para o recorte atual.");
-        }
+        if (filtro.Estado is { } estado) ValidacaoCadastro.Modalidade(estado, "estado");
     }
 
     private static void ValidarPeriodo(FiltroConsultaAlugueis filtro)

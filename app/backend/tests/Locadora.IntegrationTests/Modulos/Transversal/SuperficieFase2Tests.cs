@@ -7,7 +7,7 @@ namespace Locadora.IntegrationTests.Modulos.Transversal;
 public sealed class SuperficieFase2Tests
 {
     [TestMethod]
-    public async Task OpenApiContemCadastrosELocacoesSemRotasDeFotoOuDevolucaoEEntradaSemEmpresa()
+    public async Task OpenApiContemCadastrosELocacoesFase4SemRotasDeFotoEEntradaSemEmpresa()
     {
         using var cliente = Clientes.Criar();
         using var resposta = await cliente.GetAsync("/openapi/v1.json");
@@ -25,8 +25,11 @@ public sealed class SuperficieFase2Tests
         var rotasLocacao = new Dictionary<string, string[]>
         {
             ["/api/v1/alugueis"] = ["get", "post"],
-            ["/api/v1/alugueis/{id}"] = ["get", "put"],
+            ["/api/v1/alugueis/{id}"] = ["get", "put", "delete"],
             ["/api/v1/alugueis/estimativas"] = ["post"],
+            ["/api/v1/alugueis/referencias-veiculos"] = ["get"],
+            ["/api/v1/alugueis/{id}/devolucao/previa"] = ["post"],
+            ["/api/v1/alugueis/{id}/devolucao"] = ["post"],
         };
         var caminhosLocacao = caminhos.EnumerateObject()
             .Where(item => item.Name.Contains("alugue", StringComparison.OrdinalIgnoreCase))
@@ -40,7 +43,6 @@ public sealed class SuperficieFase2Tests
         }
         Assert.IsFalse(caminhos.EnumerateObject().Any(item =>
             item.Name.Contains("foto", StringComparison.OrdinalIgnoreCase)
-            || item.Name.Contains("devolu", StringComparison.OrdinalIgnoreCase)
             || item.Name.Contains("conclu", StringComparison.OrdinalIgnoreCase)
             || item.Name.Contains("__test", StringComparison.OrdinalIgnoreCase)));
         var esquemas = json.GetProperty("components").GetProperty("schemas");
