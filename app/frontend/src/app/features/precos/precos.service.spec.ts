@@ -16,6 +16,18 @@ describe('PrecosService', () => {
   });
   afterEach(() => http.verify());
 
+  it('carrega todas as páginas de taxas para a seleção da devolução', async () => {
+    const carregar = api.listarTodasTaxas();
+    const primeira = http.expectOne(r => r.url === `${base}/taxas-servicos` && r.params.get('page') === '1');
+    primeira.flush({ items: Array.from({ length: 20 }, (_, i) => ({ ...taxa, id: `taxa-${i}` })), page: 1, pageSize: 20, total: 21 });
+    await new Promise(resolve => setTimeout(resolve));
+    const segunda = http.expectOne(r => r.url === `${base}/taxas-servicos` && r.params.get('page') === '2');
+    segunda.flush({ items: [{ ...taxa, id: 'taxa-20' }], page: 2, pageSize: 20, total: 21 });
+    const todas = await carregar;
+    expect(todas).toHaveLength(21);
+    expect(todas.at(-1)?.id).toBe('taxa-20');
+  });
+
   it('pagina taxas sem parâmetro de empresa e envia decimais em string', async () => {
     const listar = api.listarTaxas(2);
     const pedido = http.expectOne((r) => r.url === `${base}/taxas-servicos`);

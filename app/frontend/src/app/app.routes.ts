@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
 import { protegerContratacao } from './features/locacoes/proteger-contratacao.guard';
+import { protegerDevolucao } from './features/locacoes/proteger-devolucao.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'painel' },
@@ -38,6 +39,12 @@ export const routes: Routes = [
     canDeactivate: [protegerContratacao],
     data: { nova: true },
     loadComponent: () => import('./features/locacoes/alugueis.component').then((modulo) => modulo.AlugueisComponent),
+  },
+  {
+    path: 'alugueis/:id/devolucao',
+    canActivate: [authGuard],
+    canDeactivate: [protegerDevolucao],
+    loadComponent: () => import('./features/locacoes/devolucao-locacao.component').then((modulo) => modulo.DevolucaoLocacaoComponent),
   },
   {
     path: 'alugueis/:id/editar',

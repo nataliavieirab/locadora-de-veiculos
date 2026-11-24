@@ -6,34 +6,45 @@ import { MoedaBrlPipe } from '../../shared/moeda-brl.pipe';
 import { problemaCadastro } from '../../shared/erro-cadastro';
 import { ResumoErroComponent } from '../../shared/resumo-erro.component';
 import { Pagina } from '../frota/grupos-planos.service';
-import { Veiculo, VeiculosService } from '../frota/veiculos.service';
-import { AlugueisService, ContratoAluguel, ItemListaAluguel } from './alugueis.service';
+import { AlugueisService, ContratoAluguel, FiltroAlugueis, ItemListaAluguel, ReferenciaVeiculoHistorico } from './alugueis.service';
 import { Recurso } from '../frota/grupos-planos.service';
 import { ContratacaoLocacaoComponent } from './contratacao-locacao.component';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ApuracaoDevolucaoComponent } from './apuracao-devolucao.component';
 
 const vazioPagina = (): Pagina<ItemListaAluguel> => ({ items: [], page: 1, pageSize: 20, total: 0 });
 
 @Component({
   selector: 'app-alugueis',
-  imports: [ShellCadastralComponent, MoedaBrlPipe, ResumoErroComponent, ContratacaoLocacaoComponent],
+  imports: [ShellCadastralComponent, MoedaBrlPipe, ResumoErroComponent, ContratacaoLocacaoComponent, ApuracaoDevolucaoComponent],
   templateUrl: './alugueis.component.html',
 })
 export class AlugueisComponent implements OnInit {
   private readonly api = inject(AlugueisService);
-  private readonly veiculos = inject(VeiculosService);
+  private filtrosAtivos: FiltroAlugueis = {};
   private readonly roteador = inject(Router);
   private readonly rota = inject(ActivatedRoute);
   private readonly avisoNavegacao = this.roteador.currentNavigation()?.extras.info;
   private concluidoNaPagina = false;
   private readonly consultaDialog = viewChild<ElementRef<HTMLDialogElement>>('consulta');
+  private readonly ocultacaoDialog = viewChild<ElementRef<HTMLDialogElement>>('ocultacao');
   private readonly formulario = viewChild(ContratacaoLocacaoComponent);
   private consulta = 0;
   private abertura = 0;
   private origem: HTMLElement | null = null;
+  private origemOcultacao: HTMLElement | null = null;
+  private ultimaConsulta: ItemListaAluguel | null = null;
+  private leituraOcultacao = 0;
+  private versaoOcultacao: string | null = null;
+  protected readonly alvoOcultacao = signal<ItemListaAluguel | null>(null);
+  protected readonly lendoOcultacao = signal(false);
+  protected readonly ocultando = signal(false);
+  protected readonly erroOcultacao = signal<string | null>(null);
+  protected readonly verificarOcultacao = signal(false);
 
   protected readonly pagina = signal(vazioPagina());
-  protected readonly frota = signal<Veiculo[]>([]);
+  protected readonly frota = signal<ReferenciaVeiculoHistorico[]>([]);
   protected readonly carregando = signal(true);
   protected readonly erroLista = signal<string | null>(null);
   protected readonly erroConsulta = signal<string | null>(null);
@@ -50,6 +61,7 @@ export class AlugueisComponent implements OnInit {
   protected readonly filtroSaidaDe = signal('');
   protected readonly filtroSaidaAte = signal('');
   protected readonly filtrosAplicados = signal(false);
+  protected readonly incluirOcultos = signal(false);
 
   protected readonly rotuloModalidade: Record<string, string> = {
     Diario: 'Diário', Controlado: 'Controlado', Livre: 'Livre', EmAberto: 'Em aberto',
@@ -69,12 +81,12 @@ export class AlugueisComponent implements OnInit {
       return;
     }
     if (typeof this.avisoNavegacao === 'string') this.aviso.set(this.avisoNavegacao);
-    await Promise.all([this.carregar(), this.carregarFrota()]);
+    await this.carregar();
     await focarResumo(this.aviso() ? 'aviso-alugueis' : 'titulo-alugueis');
   }
 
   protected rotuloEstado(estado: string): string {
-    return estado === 'EmAberto' ? 'Em aberto' : estado;
+    return estado === 'EmAberto' ? 'Em aberto' : estado === 'Concluido' ? 'Concluído' : estado;
   }
 
   protected formatarSp = formatarInstanteSp;
@@ -89,7 +101,7 @@ export class AlugueisComponent implements OnInit {
   }
 
   podeSair(): boolean {
-    return this.concluidoNaPagina || !this.formulario()?.navegacaoBloqueada();
+    return !this.ocultando() && (this.concluidoNaPagina || !this.formulario()?.navegacaoBloqueada());
   }
 
   protected async carregar(page = 1): Promise<void> {
@@ -97,11 +109,14 @@ export class AlugueisComponent implements OnInit {
     this.carregando.set(true);
     this.erroLista.set(null);
     try {
-      const filtro = this.montarFiltroApi();
-      const pagina = await this.api.listar(page, 20, filtro);
+      const filtro = this.filtrosAtivos;
+      const [pagina, referencias] = await Promise.all([
+        this.api.listar(page, 20, filtro), this.api.todasReferenciasVeiculos(filtro.incluirOcultos ?? false),
+      ]);
       if (id !== this.consulta) return;
       this.pagina.set(pagina);
-      this.filtrosAplicados.set(!!filtro.estado || !!filtro.veiculoId || !!filtro.saidaDe || !!filtro.saidaAte);
+      this.frota.set(referencias);
+      this.filtrosAplicados.set(!!filtro.estado || !!filtro.veiculoId || !!filtro.saidaDe || !!filtro.saidaAte || !!filtro.incluirOcultos);
     } catch (erro) {
       if (id !== this.consulta) return;
       this.erroLista.set(problemaCadastro(erro).title!);
@@ -121,6 +136,7 @@ export class AlugueisComponent implements OnInit {
       return;
     }
     this.periodoInvalido.set(false);
+    this.filtrosAtivos = this.montarFiltroApi();
     await this.carregar();
   }
 
@@ -129,6 +145,8 @@ export class AlugueisComponent implements OnInit {
     this.filtroVeiculo.set('');
     this.filtroSaidaDe.set('');
     this.filtroSaidaAte.set('');
+    this.incluirOcultos.set(false);
+    this.filtrosAtivos = {};
     this.periodoInvalido.set(false);
     await this.carregar();
   }
@@ -161,6 +179,11 @@ export class AlugueisComponent implements OnInit {
 
   protected async abrirEdicao(item: ItemListaAluguel, evento: Event): Promise<void> {
     await this.roteador.navigateByUrl(`/alugueis/${item.id}/editar`);
+  }
+
+  protected async abrirDevolucao(id: string): Promise<void> {
+    this.fecharConsulta();
+    await this.roteador.navigateByUrl(`/alugueis/${id}/devolucao`);
   }
 
   private async carregarEdicao(id: string): Promise<void> {
@@ -209,6 +232,7 @@ export class AlugueisComponent implements OnInit {
   }
 
   protected async abrirConsulta(item: ItemListaAluguel, evento: Event): Promise<void> {
+    this.ultimaConsulta = item;
     const abertura = ++this.abertura;
     const alvo = evento.currentTarget;
     this.origem = alvo instanceof HTMLElement ? alvo : null;
@@ -217,7 +241,7 @@ export class AlugueisComponent implements OnInit {
     this.carregandoConsulta.set(true);
     this.consultaDialog()?.nativeElement.showModal();
     try {
-      const resultado = await this.api.consultar(item.id);
+      const resultado = await this.api.consultar(item.id, this.filtrosAtivos.incluirOcultos ?? false);
       if (abertura !== this.abertura) return;
       this.contrato.set(resultado.dados);
       await new Promise((resolve) => setTimeout(resolve));
@@ -234,6 +258,94 @@ export class AlugueisComponent implements OnInit {
     }
   }
 
+  protected repetirConsulta(): void {
+    if (this.ultimaConsulta) void this.abrirConsulta(this.ultimaConsulta, { currentTarget: this.origem } as unknown as Event);
+  }
+
+  protected async pedirOcultacao(item: ItemListaAluguel, evento: Event): Promise<void> {
+    if (item.estado !== 'Concluido' || item.oculto || this.ocultando()) return;
+    const leitura = ++this.leituraOcultacao;
+    this.origemOcultacao = evento.currentTarget instanceof HTMLElement ? evento.currentTarget : this.origem;
+    this.alvoOcultacao.set(item);
+    this.erroOcultacao.set(null);
+    this.verificarOcultacao.set(false);
+    this.versaoOcultacao = null;
+    this.lendoOcultacao.set(true);
+    this.consultaDialog()?.nativeElement.close();
+    this.ocultacaoDialog()?.nativeElement.showModal();
+    this.ocultacaoDialog()?.nativeElement.querySelector<HTMLButtonElement>('#voltar-sem-ocultar')?.focus();
+    try {
+      const recurso = await this.api.consultar(item.id);
+      if (leitura !== this.leituraOcultacao) return;
+      this.versaoOcultacao = recurso.etag;
+    } catch (erro) {
+      if (leitura !== this.leituraOcultacao) return;
+      this.erroOcultacao.set(problemaCadastro(erro).title!);
+      this.verificarOcultacao.set(true);
+      await focarResumo('erro-ocultacao');
+    } finally {
+      if (leitura === this.leituraOcultacao) this.lendoOcultacao.set(false);
+    }
+  }
+
+  protected pedirOcultacaoConsulta(evento: Event): void {
+    const c = this.contrato();
+    if (!c || c.estado !== 'Concluido' || c.oculto) return;
+    void this.pedirOcultacao({ id: c.id, estado: c.estado, revisao: c.revisao,
+      condutorNome: c.condutor.nome, condutorCpfResumo: '', veiculoPlaca: c.veiculo.placa,
+      planoModalidade: c.plano.modalidade, saidaUtc: c.saidaUtc, retornoPrevistoUtc: c.retornoPrevistoUtc,
+      totalConhecido: c.estimativa.totalConhecido, totalFinal: c.devolucao?.calculo.totalFinal, oculto: c.oculto }, evento);
+  }
+
+  protected cancelarOcultacao(evento?: Event): void {
+    if (this.ocultando()) { evento?.preventDefault(); return; }
+    evento?.preventDefault();
+    this.leituraOcultacao++;
+    this.ocultacaoDialog()?.nativeElement.close();
+  }
+
+  protected ocultacaoFechada(): void {
+    if (this.origemOcultacao?.isConnected && !this.origemOcultacao.closest('dialog:not([open])'))
+      this.origemOcultacao.focus();
+    else if (this.origem?.isConnected) this.origem.focus();
+    else document.getElementById('titulo-alugueis')?.focus();
+  }
+
+  protected teclaOcultacao(evento: KeyboardEvent): void {
+    const dialogo = this.ocultacaoDialog()?.nativeElement;
+    if (dialogo) conterTabulacao(evento, dialogo);
+  }
+
+  protected async confirmarOcultacao(): Promise<void> {
+    const item = this.alvoOcultacao();
+    if (!item || !this.versaoOcultacao || this.lendoOcultacao() || this.ocultando() || this.verificarOcultacao()) return;
+    this.ocultando.set(true);
+    try {
+      await this.api.ocultar(item.id, this.versaoOcultacao);
+      this.ocultacaoDialog()?.nativeElement.close();
+      this.contrato.set(null);
+      this.aviso.set('Locação ocultada da operação. O contrato e o demonstrativo final foram preservados.');
+      await this.carregar();
+      await focarResumo('titulo-alugueis');
+    } catch (erro) {
+      const status = erro instanceof HttpErrorResponse ? erro.status : 0;
+      this.verificarOcultacao.set(true);
+      this.erroOcultacao.set(status === 412 || status === 428
+        ? 'O contrato foi atualizado ou está sem versão. Recarregue a consulta antes de tentar novamente.'
+        : 'Resultado da ocultação não confirmado. Atualize a consulta para verificar o estado; nenhum sucesso foi confirmado.');
+      await focarResumo('erro-ocultacao');
+    } finally {
+      this.ocultando.set(false);
+    }
+  }
+
+  protected async atualizarAposOcultacao(): Promise<void> {
+    if (this.ocultando()) return;
+    this.ocultacaoDialog()?.nativeElement.close();
+    await this.carregar();
+    await focarResumo('titulo-alugueis');
+  }
+
   protected fecharConsulta(): void {
     this.abertura++;
     this.consultaDialog()?.nativeElement.close();
@@ -241,7 +353,7 @@ export class AlugueisComponent implements OnInit {
 
   protected consultaFechada(): void {
     if (this.origem?.isConnected) this.origem.focus();
-    else document.getElementById('nova-locacao')?.focus();
+    else document.getElementById('titulo-alugueis')?.focus();
   }
 
   protected teclaConsulta(evento: KeyboardEvent): void {
@@ -263,17 +375,7 @@ export class AlugueisComponent implements OnInit {
       ...(veiculoId ? { veiculoId } : {}),
       ...(saidaDe ? { saidaDe: transporteInicioDia(saidaDe) } : {}),
       ...(saidaAte ? { saidaAte: transporteFimExclusivoDia(saidaAte) } : {}),
+      ...(this.incluirOcultos() ? { incluirOcultos: true } : {}),
     };
-  }
-
-  private async carregarFrota(): Promise<void> {
-    const itens: Veiculo[] = [];
-    let pagina = 1;
-    for (;;) {
-      const resposta = await this.veiculos.listar(pagina++);
-      itens.push(...resposta.items);
-      if (!resposta.items.length || resposta.page * resposta.pageSize >= resposta.total) break;
-    }
-    this.frota.set(itens);
   }
 }

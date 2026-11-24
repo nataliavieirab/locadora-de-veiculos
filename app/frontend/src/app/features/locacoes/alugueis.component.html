@@ -7,7 +7,7 @@
       <div>
         <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Locações</p>
         <h1 id="titulo-alugueis" class="mt-2 text-3xl font-bold tracking-tight" tabindex="-1">Aluguéis</h1>
-        <p class="mt-2 max-w-xl text-stone-600">Consulte os contratos da empresa e acompanhe as locações em aberto.</p>
+        <p class="mt-2 max-w-xl text-stone-600">Acompanhe as locações em aberto e consulte os valores finais preservados.</p>
       </div>
       <button id="nova-locacao" type="button" class="rounded-lg bg-blue-900 px-5 py-3 font-semibold text-white"
         (click)="abrirContratacao($event)">＋ Nova locação</button>
@@ -23,7 +23,8 @@
         <label for="filtro-estado" class="block text-sm font-semibold">Estado</label>
         <select id="filtro-estado" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5" [value]="filtroEstado()" (change)="atualizaEstado($event)">
           <option value="">Todos os estados</option>
-          <option value="EmAberto">Em aberto</option>
+           <option value="EmAberto">Em aberto</option>
+           <option value="Concluido">Concluído</option>
         </select>
       </div>
       <div>
@@ -50,6 +51,7 @@
         }
       </div>
       <div class="flex flex-wrap justify-end gap-3 sm:col-span-2 lg:col-span-4 lg:border-t lg:border-stone-200 lg:pt-4">
+        <label class="mr-auto flex items-center gap-2 text-sm"><input type="checkbox" [checked]="incluirOcultos()" (change)="incluirOcultos.set($any($event.target).checked)" /> Incluir ocultos</label>
         <button type="button" class="rounded-lg border border-stone-400 px-4 py-2.5 font-semibold" (click)="limparFiltros()">Limpar filtros</button>
         <button type="submit" class="rounded-lg bg-blue-900 px-4 py-2.5 font-semibold text-white">Aplicar filtros</button>
       </div>
@@ -87,9 +89,9 @@
         }
       </section>
     } @else {
-      <div class="overflow-x-auto rounded-xl border border-stone-300 bg-white shadow-sm">
+      <div tabindex="0" role="region" aria-label="Tabela de aluguéis, com rolagem horizontal" class="overflow-x-auto rounded-xl border border-stone-300 bg-white shadow-sm">
         <table class="w-full min-w-4xl border-collapse text-left text-sm">
-          <caption class="sr-only">Aluguéis da empresa; os valores são estimativas, não totais finais</caption>
+          <caption class="sr-only">Aluguéis da empresa: estimativa para abertos e total final para concluídos</caption>
           <thead class="bg-stone-50 text-xs text-stone-600 uppercase">
             <tr>
               <th scope="col" class="p-4">ID / estado</th>
@@ -97,7 +99,7 @@
               <th scope="col" class="p-4">Veículo</th>
               <th scope="col" class="p-4">Plano</th>
               <th scope="col" class="p-4">Saída / retorno previsto</th>
-              <th scope="col" class="p-4">Estimativa</th>
+              <th scope="col" class="p-4">Valor da locação</th>
               <th scope="col" class="p-4">Ações</th>
             </tr>
           </thead>
@@ -107,6 +109,7 @@
                 <td class="p-4">
                   <strong class="block max-w-36 break-all font-mono text-xs">{{ item.id }}</strong>
                   <span class="mt-1 inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-950">{{ rotuloEstado(item.estado) }}</span>
+                  @if (item.oculto) { <span class="mt-1 inline-block rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold">Oculto da operação</span> }
                 </td>
                 <td class="p-4">
                   <strong class="block">{{ item.condutorNome }}</strong>
@@ -121,18 +124,24 @@
                   <span class="text-xs text-stone-600">Previsto: {{ formatarSp(item.retornoPrevistoUtc) }}</span>
                 </td>
                 <td class="p-4">
-                  <strong class="block tabular-nums">{{ item.totalConhecido | moedaBrl }}</strong>
-                  <span class="text-xs text-stone-600">Parcelas conhecidas</span>
+                  <strong class="block tabular-nums">{{ (item.estado === 'Concluido' ? item.totalFinal ?? '' : item.totalConhecido) | moedaBrl }}</strong>
+                  <span class="text-xs text-stone-600">{{ item.estado === 'Concluido' ? 'Total final' : 'Estimativa · parcelas conhecidas' }}</span>
                 </td>
                 <td class="p-4">
                   <div class="flex flex-col items-start gap-2 font-semibold">
                     <button type="button" class="text-blue-900 underline"
                       [attr.aria-label]="'Consultar contrato ' + item.id"
                       (click)="abrirConsulta(item, $event)">Consultar contrato</button>
+                    @if (item.estado === 'EmAberto') {
+                    <button type="button" class="text-blue-900 underline" (click)="abrirDevolucao(item.id)">Registrar devolução</button>
                     <button type="button" class="text-blue-900 underline"
-                      [attr.aria-label]="'Editar ' + item.id"
+                       [attr.aria-label]="'Editar ' + item.id"
                       [disabled]="carregandoEdicao()"
-                      (click)="abrirEdicao(item, $event)">Editar</button>
+                       (click)="abrirEdicao(item, $event)">Editar</button>
+                    }
+                    @if (item.estado === 'Concluido' && !item.oculto) {
+                      <button type="button" class="text-stone-600 underline" (click)="pedirOcultacao(item, $event)">Ocultar da operação</button>
+                    }
                   </div>
                 </td>
               </tr>
@@ -152,8 +161,8 @@
     }
 
     <p class="mt-8 flex flex-wrap gap-2 text-sm text-stone-600">
-      <span class="font-semibold text-stone-800">Estimativas, não valores finais.</span>
-      Quilômetros, quando aplicáveis, reposição de combustível e eventual atraso serão apurados na devolução. A caução não compõe o custo.
+      <span class="font-semibold text-stone-800">Estimativa e valor final são diferentes.</span>
+      Nos abertos, o valor mostra as parcelas conhecidas. Nos concluídos, o total é imutável. A caução não integra o custo.
     </p>
     }
   </main>
@@ -161,24 +170,26 @@
 
 <dialog #consulta aria-labelledby="titulo-consulta-aluguel" (close)="consultaFechada()" (cancel)="cancelarConsulta($event)"
   (keydown)="teclaConsulta($event)"
-  class="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-3xl border-l border-stone-300 bg-white p-0 text-stone-950 shadow-xl backdrop:bg-stone-950/40">
+  class="fixed inset-y-0 right-0 left-auto m-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden open:grid h-dvh max-h-none w-full max-w-3xl border-l border-stone-300 bg-white p-0 text-stone-950 shadow-xl backdrop:bg-stone-950/40">
   <header class="flex items-start justify-between gap-4 border-b border-stone-300 px-6 py-5">
     <div>
       <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Consulta de contrato</p>
-      <h2 id="titulo-consulta-aluguel" class="mt-2 text-2xl font-semibold">
+      <h2 id="titulo-consulta-aluguel" class="mt-2 break-all text-2xl font-semibold">
         {{ contrato() ? 'Locação ' + contrato()!.id : 'Contrato' }}
       </h2>
     </div>
     <button id="fechar-consulta" type="button" class="rounded-lg border border-stone-400 px-3 py-2" aria-label="Fechar consulta"
       (click)="fecharConsulta()">✕</button>
   </header>
-  <div class="max-h-[calc(100dvh-140px)] space-y-5 overflow-y-auto p-6">
+  <div class="min-h-0 space-y-5 overflow-y-auto p-6">
     <app-resumo-erro identificador="erro-consulta-aluguel" [mensagem]="erroConsulta()" />
+    @if (erroConsulta()) { <button type="button" class="rounded-lg border border-stone-400 px-4 py-3" (click)="repetirConsulta()">Tentar novamente</button> }
     @if (carregandoConsulta()) {
       <p role="status">Carregando contrato…</p>
     } @else if (contrato(); as c) {
       <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
         <span class="rounded-full bg-blue-50 px-3 py-1 font-semibold text-blue-950">{{ rotuloEstado(c.estado) }}</span>
+        @if (c.oculto) { <span class="rounded-full bg-stone-100 px-3 py-1 font-semibold">Oculto da operação</span> }
         <span class="font-mono text-xs text-stone-600">Revisão {{ c.revisao }}</span>
       </div>
       <section aria-labelledby="dados-contrato-aluguel">
@@ -226,6 +237,7 @@
           </div>
         </dl>
       </section>
+      @if (c.estado === 'EmAberto') {
       <section class="rounded-xl border border-stone-300" aria-labelledby="demonstrativo-aluguel">
         <header class="border-b border-stone-200 px-5 py-4">
           <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Valores contratados</p>
@@ -266,12 +278,45 @@
           <p class="mt-1 text-xs text-stone-600">Não integra o custo e não é abatida da locação.</p>
         </footer>
       </section>
+      } @else if (c.devolucao; as final) {
+        <section aria-label="Dados efetivos preservados" class="rounded-lg border border-stone-300 p-4">
+          <h3 class="font-semibold">Final imutável · Dados efetivos preservados</h3>
+          <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+            <div><dt class="text-xs text-stone-600">Retorno real · São Paulo</dt><dd>{{ formatarSp(final.calculo.retornoRealUtc) }}</dd></div>
+            <div><dt class="text-xs text-stone-600">Hodômetro final</dt><dd>{{ final.calculo.hodometroFinal }} km</dd></div>
+            <div><dt class="text-xs text-stone-600">Litros restantes / capacidade</dt><dd>{{ formatarLitros(final.calculo.litrosRestantes) }} / {{ formatarLitros(final.calculo.capacidadeLitros) }} L</dd></div>
+            <div><dt class="text-xs text-stone-600">Referência do final</dt><dd class="break-all font-mono text-xs">{{ final.id }}</dd></div>
+          </dl>
+        </section>
+        <app-apuracao-devolucao [dados]="final.calculo" [final]="true" />
+      }
     }
   </div>
-  <footer class="flex justify-end gap-3 border-t border-stone-300 px-6 py-5">
+  <footer class="flex flex-wrap justify-end gap-3 border-t border-stone-300 px-6 py-5">
     <button type="button" class="rounded-lg border border-stone-400 px-4 py-2 font-semibold" (click)="fecharConsulta()">Fechar</button>
-    @if (contrato()) {
+    @if (contrato()?.estado === 'EmAberto') {
+      <button type="button" class="rounded-lg border border-stone-400 px-4 py-2 font-semibold" (click)="abrirDevolucao(contrato()!.id)">Registrar devolução</button>
       <button type="button" class="rounded-lg bg-blue-900 px-4 py-2 font-semibold text-white" (click)="abrirEdicaoConsulta()">Editar contrato</button>
     }
+    @if (contrato()?.estado === 'Concluido' && !contrato()?.oculto) {
+      <button type="button" class="rounded-lg border border-stone-400 px-4 py-2 font-semibold" (click)="pedirOcultacaoConsulta($event)">Ocultar da operação</button>
+    }
+  </footer>
+</dialog>
+
+<dialog #ocultacao aria-labelledby="titulo-ocultacao" (cancel)="cancelarOcultacao($event)" (close)="ocultacaoFechada()" (keydown)="teclaOcultacao($event)"
+  class="max-w-[calc(100%_-_2rem)] rounded-xl border border-stone-300 bg-white p-0 text-stone-950 shadow-xl backdrop:bg-stone-950/40 sm:max-w-lg">
+  <header class="border-b border-stone-300 p-5"><p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Preservação do histórico</p>
+    <h2 id="titulo-ocultacao" class="mt-2 text-2xl font-semibold">Ocultar da operação?</h2></header>
+  <div class="space-y-4 p-5"><p>Esta locação deixará de aparecer na consulta padrão. O contrato e o demonstrativo final serão preservados.</p>
+    <p class="rounded-lg bg-stone-50 p-3 text-sm"><strong class="block break-all">{{ alvoOcultacao()?.id }} · {{ alvoOcultacao()?.veiculoPlaca }}</strong>
+      Você poderá consultar em Aluguéis ao marcar Incluir ocultos. Não há reabertura nem remoção do histórico.</p>
+    @if (lendoOcultacao()) { <p role="status">Carregando versão do contrato…</p> }
+    <app-resumo-erro identificador="erro-ocultacao" [mensagem]="erroOcultacao()" />
+    @if (verificarOcultacao()) { <button type="button" (click)="atualizarAposOcultacao()" class="rounded-lg border border-stone-400 px-4 py-3">Atualizar consulta</button> }
+  </div>
+  <footer class="flex flex-wrap justify-end gap-3 border-t border-stone-300 p-5">
+    <button id="voltar-sem-ocultar" type="button" [disabled]="ocultando()" (click)="cancelarOcultacao()" class="rounded-lg border border-stone-400 px-4 py-3 font-semibold disabled:opacity-50">Voltar sem ocultar</button>
+    <button type="button" [disabled]="ocultando() || lendoOcultacao() || verificarOcultacao()" (click)="confirmarOcultacao()" class="rounded-lg bg-blue-900 px-4 py-3 font-semibold text-white disabled:opacity-50">{{ ocultando() ? 'Ocultando…' : 'Ocultar da operação' }}</button>
   </footer>
 </dialog>
