@@ -20,6 +20,10 @@ ambienteApi.ASPNETCORE_ENVIRONMENT = 'Development';
 ambienteApi.ASPNETCORE_URLS = 'http://127.0.0.1:5285';
 ambienteApi.ConnectionStrings__Locadora = conexao;
 ambienteApi.Autenticacao__Jwt__Chaves__v1 = chave;
+// Os cenários compartilham o IP de loopback; rate limiting tem testes HTTP próprios.
+// Estes limites valem somente no processo da API iniciado pela suíte E2E.
+ambienteApi.Limites__Registro__Quantidade = '100';
+ambienteApi.Limites__Login__Quantidade = '100';
 
 export default defineConfig({
   testDir: './tests',
