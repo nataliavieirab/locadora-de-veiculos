@@ -92,10 +92,20 @@ export class PessoasService {
     }));
   }
 
-  listarCondutores(page = 1): Promise<Pagina<Condutor>> {
+  listarCondutores(page = 1, clienteId?: string): Promise<Pagina<Condutor>> {
     return firstValueFrom(this.http.get<Pagina<Condutor>>(`${this.base}/condutores`, {
-      params: { page, pageSize: 20 },
+      params: { page, pageSize: 20, ...(clienteId ? { clienteId } : {}) },
     }));
+  }
+
+  async listarCondutoresDoCliente(clienteId: string): Promise<Condutor[]> {
+    const condutores: Condutor[] = [];
+    let pagina = 1;
+    for (;;) {
+      const resposta = await this.listarCondutores(pagina++, clienteId);
+      condutores.push(...resposta.items);
+      if (!resposta.items.length || resposta.page * resposta.pageSize >= resposta.total) return condutores;
+    }
   }
 
   async listarTodosClientes(): Promise<ResumoCliente[]> {

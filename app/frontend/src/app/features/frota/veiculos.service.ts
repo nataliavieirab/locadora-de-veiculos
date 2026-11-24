@@ -23,10 +23,27 @@ export class VeiculosService {
   private readonly grupos = inject(GruposPlanosService);
   private readonly base = `${URL_API}/api/v1/veiculos`;
 
-  listar(page = 1, grupoId = ''): Promise<Pagina<Veiculo>> {
+  listar(page = 1, grupoId = '', somenteDisponiveis = false, aluguelEmEdicaoId?: string): Promise<Pagina<Veiculo>> {
     return firstValueFrom(this.http.get<Pagina<Veiculo>>(this.base, {
-      params: { page, pageSize: 20, ...(grupoId ? { grupoId } : {}) },
+      params: {
+        page, pageSize: 20,
+        ...(grupoId ? { grupoId } : {}),
+        ...(somenteDisponiveis ? { somenteDisponiveis: true } : {}),
+        ...(aluguelEmEdicaoId ? { aluguelEmEdicaoId } : {}),
+      },
     }));
+  }
+
+  async listarDisponiveis(aluguelEmEdicaoId?: string): Promise<Veiculo[]> {
+    const veiculos: Veiculo[] = [];
+    let pagina = 1;
+    for (;;) {
+      const resposta = aluguelEmEdicaoId
+        ? await this.listar(pagina++, '', false, aluguelEmEdicaoId)
+        : await this.listar(pagina++, '', true);
+      veiculos.push(...resposta.items);
+      if (!resposta.items.length || resposta.page * resposta.pageSize >= resposta.total) return veiculos;
+    }
   }
 
   async listarGrupos(): Promise<Grupo[]> {

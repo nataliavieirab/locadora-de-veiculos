@@ -23,6 +23,16 @@ export class PrecosService {
     return firstValueFrom(this.http.get<Pagina<TaxaServico>>(`${this.base}/taxas-servicos`, { params: { page, pageSize: 20 } }));
   }
 
+  async listarTodasTaxas(): Promise<TaxaServico[]> {
+    const taxas: TaxaServico[] = [];
+    let pagina = 1;
+    for (;;) {
+      const resposta = await this.listarTaxas(pagina++);
+      taxas.push(...resposta.items);
+      if (!resposta.items.length || resposta.page * resposta.pageSize >= resposta.total) return taxas;
+    }
+  }
+
   async taxa(id: string): Promise<Recurso<TaxaServico>> {
     const resposta = await firstValueFrom(this.http.get<TaxaServico>(`${this.base}/taxas-servicos/${id}`, { observe: 'response' }));
     const etag = resposta.headers.get('ETag');
