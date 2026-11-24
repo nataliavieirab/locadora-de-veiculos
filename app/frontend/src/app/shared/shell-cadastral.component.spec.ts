@@ -14,7 +14,7 @@ describe('ShellCadastralComponent', () => {
     const tela = fixture.nativeElement as HTMLElement;
     expect(tela.querySelector('a')?.getAttribute('href')).toBe('#conteudo-teste');
     const destinos = [...tela.querySelectorAll('nav a')].map((item) => item.getAttribute('href'));
-    expect(destinos).toEqual(['/grupos-planos', '/veiculos', '/clientes', '/precos-servicos', '/painel']);
+    expect(destinos).toEqual(['/grupos-planos', '/veiculos', '/clientes', '/precos-servicos', '/alugueis', '/painel']);
     expect(tela.querySelector('nav')?.getAttribute('aria-label')).toBe('Navegação cadastral');
     expect(tela.querySelector('select')).toBeNull();
     fixture.destroy();

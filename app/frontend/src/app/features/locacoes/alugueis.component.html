@@ -1,0 +1,277 @@
+<app-shell-cadastral conteudoId="conteudo-alugueis">
+  <main id="conteudo-alugueis" class="mx-auto max-w-7xl px-5 py-9 sm:px-10">
+    @if (contratando()) {
+      <app-contratacao-locacao [contratoEdicao]="contratoEdicao()" (voltar)="voltarLista()" (concluido)="formularioConcluido($event)" />
+    } @else {
+    <div class="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Locações</p>
+        <h1 id="titulo-alugueis" class="mt-2 text-3xl font-bold tracking-tight" tabindex="-1">Aluguéis</h1>
+        <p class="mt-2 max-w-xl text-stone-600">Consulte os contratos da empresa e acompanhe as locações em aberto.</p>
+      </div>
+      <button id="nova-locacao" type="button" class="rounded-lg bg-blue-900 px-5 py-3 font-semibold text-white"
+        (click)="abrirContratacao($event)">＋ Nova locação</button>
+    </div>
+
+    @if (aviso()) {
+      <p id="aviso-alugueis" role="status" tabindex="-1" class="mb-5 rounded-lg border border-amber-700 bg-amber-50 p-3 text-amber-950">{{ aviso() }}</p>
+    }
+
+    <form class="mb-5 grid gap-4 rounded-xl border border-stone-300 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4" novalidate
+      aria-label="Filtros dos aluguéis" (submit)="aplicarFiltros($event)">
+      <div>
+        <label for="filtro-estado" class="block text-sm font-semibold">Estado</label>
+        <select id="filtro-estado" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5" [value]="filtroEstado()" (change)="atualizaEstado($event)">
+          <option value="">Todos os estados</option>
+          <option value="EmAberto">Em aberto</option>
+        </select>
+      </div>
+      <div>
+        <label for="filtro-veiculo" class="block text-sm font-semibold">Veículo</label>
+        <select id="filtro-veiculo" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5" [value]="filtroVeiculo()" (change)="atualizaVeiculo($event)">
+          <option value="">Todos os veículos</option>
+          @for (veiculo of frota(); track veiculo.id) {
+            <option [value]="veiculo.id">{{ veiculo.placa }} · {{ veiculo.modelo }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label for="filtro-saida-de" class="block text-sm font-semibold">Saída a partir de</label>
+        <input id="filtro-saida-de" type="date" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5"
+          [value]="filtroSaidaDe()" (change)="atualizaSaidaDe($event)" />
+      </div>
+      <div>
+        <label for="filtro-saida-ate" class="block text-sm font-semibold">Saída até</label>
+        <input id="filtro-saida-ate" type="date" class="mt-2 w-full rounded-lg border border-stone-400 px-3 py-2.5"
+          [value]="filtroSaidaAte()" [attr.aria-invalid]="periodoInvalido()"
+          [attr.aria-describedby]="periodoInvalido() ? 'erro-periodo-alugueis' : null" (change)="atualizaSaidaAte($event)" />
+        @if (periodoInvalido()) {
+          <p id="erro-periodo-alugueis" class="mt-1 text-sm font-medium text-red-950">O fim do período deve ser igual ou posterior ao início.</p>
+        }
+      </div>
+      <div class="flex flex-wrap justify-end gap-3 sm:col-span-2 lg:col-span-4 lg:border-t lg:border-stone-200 lg:pt-4">
+        <button type="button" class="rounded-lg border border-stone-400 px-4 py-2.5 font-semibold" (click)="limparFiltros()">Limpar filtros</button>
+        <button type="submit" class="rounded-lg bg-blue-900 px-4 py-2.5 font-semibold text-white">Aplicar filtros</button>
+      </div>
+    </form>
+
+    <div class="mb-4 flex flex-col gap-2 text-sm text-stone-600 sm:flex-row sm:justify-between">
+      @if (carregando()) {
+        <span role="status">Obtendo registros…</span>
+      } @else if (erroLista()) {
+        <span>Consulta indisponível</span>
+      } @else {
+        <span>{{ pagina().total }} {{ pagina().total === 1 ? 'aluguel' : 'aluguéis' }} · {{ pagina().items.length }} nesta página</span>
+      }
+      <span>Horários de São Paulo · America/Sao_Paulo</span>
+    </div>
+
+    <app-resumo-erro identificador="erro-lista-alugueis" [mensagem]="erroLista()" />
+
+    @if (carregando()) {
+      <p role="status" class="py-10 text-stone-600">Carregando aluguéis…</p>
+    } @else if (erroLista()) {
+      <button type="button" class="mt-4 rounded-lg border border-stone-400 bg-white px-4 py-2" (click)="carregar(pagina().page)">Tentar novamente</button>
+    } @else if (pagina().items.length === 0) {
+      <section class="rounded-xl border border-dashed border-stone-400 bg-white px-6 py-14 text-center">
+        <h2 class="text-xl font-semibold">{{ filtrosAplicados() ? 'Nenhum aluguel encontrado' : 'Nenhum aluguel cadastrado' }}</h2>
+        <p class="mt-2 text-stone-600">
+          {{ filtrosAplicados()
+            ? 'Não há aluguéis para os filtros informados. Ajuste o período ou limpe os filtros.'
+            : 'Registre a primeira locação para consultar os contratos da empresa.' }}
+        </p>
+        @if (filtrosAplicados()) {
+          <button type="button" class="mt-6 rounded-lg border border-stone-400 px-4 py-2 font-semibold" (click)="limparFiltros()">Limpar filtros</button>
+        } @else {
+          <button type="button" class="mt-6 rounded-lg bg-blue-900 px-5 py-3 font-semibold text-white" (click)="abrirContratacao()">Nova locação</button>
+        }
+      </section>
+    } @else {
+      <div class="overflow-x-auto rounded-xl border border-stone-300 bg-white shadow-sm">
+        <table class="w-full min-w-4xl border-collapse text-left text-sm">
+          <caption class="sr-only">Aluguéis da empresa; os valores são estimativas, não totais finais</caption>
+          <thead class="bg-stone-50 text-xs text-stone-600 uppercase">
+            <tr>
+              <th scope="col" class="p-4">ID / estado</th>
+              <th scope="col" class="p-4">Condutor</th>
+              <th scope="col" class="p-4">Veículo</th>
+              <th scope="col" class="p-4">Plano</th>
+              <th scope="col" class="p-4">Saída / retorno previsto</th>
+              <th scope="col" class="p-4">Estimativa</th>
+              <th scope="col" class="p-4">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of pagina().items; track item.id) {
+              <tr class="border-t border-stone-200">
+                <td class="p-4">
+                  <strong class="block max-w-36 break-all font-mono text-xs">{{ item.id }}</strong>
+                  <span class="mt-1 inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-950">{{ rotuloEstado(item.estado) }}</span>
+                </td>
+                <td class="p-4">
+                  <strong class="block">{{ item.condutorNome }}</strong>
+                  <span class="text-xs text-stone-600">{{ item.condutorCpfResumo }}</span>
+                </td>
+                <td class="p-4">
+                  <span class="whitespace-nowrap rounded border border-stone-400 bg-stone-50 px-2 py-1 font-mono font-bold">{{ item.veiculoPlaca }}</span>
+                </td>
+                <td class="p-4">{{ rotuloModalidade[item.planoModalidade] ?? item.planoModalidade }}</td>
+                <td class="p-4">
+                  <strong class="block">{{ formatarSp(item.saidaUtc) }}</strong>
+                  <span class="text-xs text-stone-600">Previsto: {{ formatarSp(item.retornoPrevistoUtc) }}</span>
+                </td>
+                <td class="p-4">
+                  <strong class="block tabular-nums">{{ item.totalConhecido | moedaBrl }}</strong>
+                  <span class="text-xs text-stone-600">Parcelas conhecidas</span>
+                </td>
+                <td class="p-4">
+                  <div class="flex flex-col items-start gap-2 font-semibold">
+                    <button type="button" class="text-blue-900 underline"
+                      [attr.aria-label]="'Consultar contrato ' + item.id"
+                      (click)="abrirConsulta(item, $event)">Consultar contrato</button>
+                    <button type="button" class="text-blue-900 underline"
+                      [attr.aria-label]="'Editar ' + item.id"
+                      [disabled]="carregandoEdicao()"
+                      (click)="abrirEdicao(item, $event)">Editar</button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (pagina().total > pagina().pageSize) {
+        <nav aria-label="Paginação dos aluguéis" class="mt-6 flex items-center justify-between gap-3">
+          <button type="button" class="rounded-lg border border-stone-400 bg-white px-4 py-2 disabled:opacity-50"
+            [disabled]="pagina().page === 1" (click)="carregar(pagina().page - 1)">Anterior</button>
+          <p>Página {{ pagina().page }}</p>
+          <button type="button" class="rounded-lg border border-stone-400 bg-white px-4 py-2 disabled:opacity-50"
+            [disabled]="pagina().page * pagina().pageSize >= pagina().total" (click)="carregar(pagina().page + 1)">Próxima</button>
+        </nav>
+      }
+    }
+
+    <p class="mt-8 flex flex-wrap gap-2 text-sm text-stone-600">
+      <span class="font-semibold text-stone-800">Estimativas, não valores finais.</span>
+      Quilômetros, quando aplicáveis, reposição de combustível e eventual atraso serão apurados na devolução. A caução não compõe o custo.
+    </p>
+    }
+  </main>
+</app-shell-cadastral>
+
+<dialog #consulta aria-labelledby="titulo-consulta-aluguel" (close)="consultaFechada()" (cancel)="cancelarConsulta($event)"
+  (keydown)="teclaConsulta($event)"
+  class="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-3xl border-l border-stone-300 bg-white p-0 text-stone-950 shadow-xl backdrop:bg-stone-950/40">
+  <header class="flex items-start justify-between gap-4 border-b border-stone-300 px-6 py-5">
+    <div>
+      <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Consulta de contrato</p>
+      <h2 id="titulo-consulta-aluguel" class="mt-2 text-2xl font-semibold">
+        {{ contrato() ? 'Locação ' + contrato()!.id : 'Contrato' }}
+      </h2>
+    </div>
+    <button id="fechar-consulta" type="button" class="rounded-lg border border-stone-400 px-3 py-2" aria-label="Fechar consulta"
+      (click)="fecharConsulta()">✕</button>
+  </header>
+  <div class="max-h-[calc(100dvh-140px)] space-y-5 overflow-y-auto p-6">
+    <app-resumo-erro identificador="erro-consulta-aluguel" [mensagem]="erroConsulta()" />
+    @if (carregandoConsulta()) {
+      <p role="status">Carregando contrato…</p>
+    } @else if (contrato(); as c) {
+      <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span class="rounded-full bg-blue-50 px-3 py-1 font-semibold text-blue-950">{{ rotuloEstado(c.estado) }}</span>
+        <span class="font-mono text-xs text-stone-600">Revisão {{ c.revisao }}</span>
+      </div>
+      <section aria-labelledby="dados-contrato-aluguel">
+        <h3 id="dados-contrato-aluguel" class="text-lg font-semibold">Dados do contrato</h3>
+        <p class="text-xs text-stone-600">Preservados na contratação</p>
+        <dl class="mt-4 grid gap-4 rounded-lg border border-stone-200 p-4 sm:grid-cols-2">
+          <div>
+            <dt class="text-xs text-stone-600">Cliente contratante</dt>
+            <dd class="font-semibold">{{ c.cliente.nome }}</dd>
+            <dd class="text-xs text-stone-600">{{ c.cliente.tipo }} · {{ mascarar(c.cliente.cpf ?? c.cliente.cnpj) }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-stone-600">Condutor</dt>
+            <dd class="font-semibold">{{ c.condutor.nome }}</dd>
+            <dd class="text-xs text-stone-600">CNH {{ mascarar(c.condutor.cnh) }} · válida até {{ formatarData(c.condutor.validadeCnh) }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-stone-600">Veículo</dt>
+            <dd class="font-semibold">{{ c.veiculo.placa }} · {{ c.veiculo.modelo }}</dd>
+            <dd class="text-xs text-stone-600">{{ c.veiculo.marca }} · {{ c.veiculo.cor }} · {{ c.veiculo.ano }} · {{ c.veiculo.grupoNome }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-stone-600">Plano</dt>
+            <dd class="font-semibold">{{ rotuloModalidade[c.plano.modalidade] ?? c.plano.modalidade }}</dd>
+            <dd class="text-xs text-stone-600">{{ c.plano.precoDiario | moedaBrl }} por dia</dd>
+            @if (c.plano.precoKm !== null) { <dd class="text-xs text-stone-600">{{ c.plano.precoKm | moedaBrl }} por km</dd> }
+            @if (c.plano.franquiaDiariaKm !== null) { <dd class="text-xs text-stone-600">{{ c.plano.franquiaDiariaKm }} km/dia · {{ c.plano.precoKmExcedente! | moedaBrl }}/km excedente</dd> }
+          </div>
+          <div>
+            <dt class="text-xs text-stone-600">Saída original</dt>
+            <dd class="font-semibold">{{ formatarSp(c.saidaUtc) }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-stone-600">Retorno previsto</dt>
+            <dd class="font-semibold">{{ formatarSp(c.retornoPrevistoUtc) }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-stone-600">Hodômetro inicial</dt>
+            <dd class="font-semibold">{{ c.hodometroInicial }} km</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-stone-600">Tanque na saída</dt>
+            <dd class="font-semibold">Cheio · {{ formatarLitros(c.veiculo.capacidadeLitros) }} L</dd>
+            <dd class="text-xs text-stone-600">{{ c.veiculo.combustivel }}</dd>
+          </div>
+        </dl>
+      </section>
+      <section class="rounded-xl border border-stone-300" aria-labelledby="demonstrativo-aluguel">
+        <header class="border-b border-stone-200 px-5 py-4">
+          <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Valores contratados</p>
+          <h3 id="demonstrativo-aluguel" class="text-lg font-semibold">Demonstrativo estimado</h3>
+        </header>
+        <div class="px-5 py-4">
+          <p class="mb-4 flex justify-between rounded-lg bg-stone-100 px-3 py-2 text-sm">
+            <span>Período estimado</span>
+            <strong>{{ c.estimativa.diarias }} {{ c.estimativa.diarias === 1 ? 'diária' : 'diárias' }}</strong>
+          </p>
+          @for (comp of c.estimativa.componentes; track comp.origemId + comp.nome) {
+            <div class="mt-3 flex justify-between gap-3 text-sm">
+              <span>{{ comp.nome }}<small class="mt-0.5 block text-xs text-stone-600">{{ comp.multiplicador }} × {{ comp.precoUnitario | moedaBrl }}</small></span>
+              <span class="font-semibold tabular-nums">{{ comp.valorArredondado | moedaBrl }}</span>
+            </div>
+          }
+          <div class="mt-5 border-t border-stone-200 pt-4">
+            <span class="text-sm font-semibold">Estimativa · parcelas conhecidas</span>
+            <p class="text-3xl font-bold tabular-nums tracking-tight">{{ c.estimativa.totalConhecido | moedaBrl }}</p>
+            <p class="text-xs text-stone-600">Não é o valor final da locação.</p>
+          </div>
+          @if (c.estimativa.quilometragemPendente || c.estimativa.combustivelPendente || c.estimativa.atrasoPendente) {
+            <div class="mt-4 border-t border-stone-200 pt-4 text-xs text-stone-600">
+              <strong class="block text-stone-800">A apurar na devolução</strong>
+              @if (c.estimativa.quilometragemPendente) { <p class="mt-1">Quilômetros rodados</p> }
+              @if (c.estimativa.franquiaTotalKm !== null) { <p class="mt-1">Franquia prevista: {{ c.estimativa.franquiaTotalKm }} km; excedente a apurar.</p> }
+              @if (!c.estimativa.quilometragemPendente) { <p class="mt-1">Quilometragem sem cobrança no plano Livre.</p> }
+              @if (c.estimativa.combustivelPendente) { <p class="mt-1">Reposição de combustível</p> }
+              @if (c.estimativa.atrasoPendente) { <p class="mt-1">Eventual atraso</p> }
+            </div>
+          }
+        </div>
+        <footer class="border-t border-stone-200 bg-stone-50 px-5 py-4">
+          <div class="flex items-center justify-between gap-3 text-sm">
+            <span>Garantia · caução fixa</span>
+            <strong class="text-lg tabular-nums">{{ c.caucao | moedaBrl }}</strong>
+          </div>
+          <p class="mt-1 text-xs text-stone-600">Não integra o custo e não é abatida da locação.</p>
+        </footer>
+      </section>
+    }
+  </div>
+  <footer class="flex justify-end gap-3 border-t border-stone-300 px-6 py-5">
+    <button type="button" class="rounded-lg border border-stone-400 px-4 py-2 font-semibold" (click)="fecharConsulta()">Fechar</button>
+    @if (contrato()) {
+      <button type="button" class="rounded-lg bg-blue-900 px-4 py-2 font-semibold text-white" (click)="abrirEdicaoConsulta()">Editar contrato</button>
+    }
+  </footer>
+</dialog>

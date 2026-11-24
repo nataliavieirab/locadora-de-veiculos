@@ -36,6 +36,7 @@ export class ShellCadastralComponent {
     { rota: '/veiculos', nome: 'Veículos' },
     { rota: '/clientes', nome: 'Clientes e condutores' },
     { rota: '/precos-servicos', nome: 'Preços e serviços' },
+    { rota: '/alugueis', nome: 'Aluguéis' },
     { rota: '/painel', nome: 'Sua empresa' },
   ];
 }
