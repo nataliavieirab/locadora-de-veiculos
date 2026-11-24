@@ -56,11 +56,12 @@ public static partial class InstanteTransporte
 
 public sealed record SaidaItemListaAluguel(Guid Id, string Estado, int Revisao, string CondutorNome,
     string CondutorCpfResumo, string VeiculoPlaca, string PlanoModalidade, DateTimeOffset SaidaUtc,
-    DateTimeOffset RetornoPrevistoUtc, string TotalConhecido)
+    DateTimeOffset RetornoPrevistoUtc, string TotalConhecido, string? TotalFinal, bool Oculto)
 {
     public static SaidaItemListaAluguel De(ItemListaAluguel item) => new(item.Id, item.Estado.ToString(), item.Revisao,
         item.CondutorNome, item.CondutorCpfResumo, item.VeiculoPlaca, item.PlanoModalidade, item.SaidaUtc,
-        item.RetornoPrevistoUtc, DecimalTransporte.Escrever(item.TotalConhecido));
+        item.RetornoPrevistoUtc, DecimalTransporte.Escrever(item.TotalConhecido),
+        item.TotalFinal is { } total ? DecimalTransporte.Escrever(total) : null, item.Oculto);
 }
 
 public sealed record SaidaContrato(Guid Id, string Estado, int Revisao, Guid ClienteId, Guid CondutorId,
@@ -68,6 +69,16 @@ public sealed record SaidaContrato(Guid Id, string Estado, int Revisao, Guid Cli
     string Caucao, SaidaClienteContratado Cliente, SaidaCondutorContratado Condutor, SaidaVeiculoContratado Veiculo,
     SaidaPlanoContratado Plano, IReadOnlyList<SaidaItemContratado> Itens, SaidaEstimativa Estimativa)
 {
+    public bool Oculto { get; init; }
+    public SaidaFinalDevolucao? Devolucao { get; init; }
+
+    public static SaidaContrato De(ResultadoConsultaAluguel resultado) => De(resultado.Revisao) with
+    {
+        Estado = resultado.Estado.ToString(),
+        Oculto = resultado.Oculto,
+        Devolucao = resultado.Devolucao is { } final ? SaidaFinalDevolucao.De(final) : null,
+    };
+
     public static SaidaContrato De(RevisaoContrato r) => new(r.AluguelId, "EmAberto", r.Numero,
         r.ClienteId, r.CondutorId, r.VeiculoId, r.PlanoId, r.SaidaUtc, r.RetornoPrevistoUtc, r.HodometroInicial,
         "1000.00", new(r.Cliente.Tipo.ToString(), r.Cliente.Nome, r.Cliente.Cpf, r.Cliente.Cnpj,

@@ -12,12 +12,18 @@ namespace Locadora.Api.Modulos.Locacoes;
 [Authorize]
 [ServiceFilter(typeof(FiltroSemCache))]
 [Route("/api/v1/alugueis")]
+[ProducesResponseType(401)]
+[ProducesResponseType(403)]
+[ProducesResponseType(503)]
 public sealed class AlugueisController(CasosEdicaoAluguel edicao, CasosConsultaAluguel consulta,
-    CasosEstimativas estimativas, CasosContratacao contratacao) : ControllerBase
+    CasosEstimativas estimativas, CasosContratacao contratacao,
+    IOperacoesDevolucao devolucao, IOcultacaoAluguel ocultacao) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType<Pagina<SaidaItemListaAluguel>>(200)]
     public async Task<IActionResult> Listar(CancellationToken cancelamento, int page = 1, int pageSize = 20,
-        string? estado = null, Guid? veiculoId = null, string? saidaDe = null, string? saidaAte = null)
+        string? estado = null, Guid? veiculoId = null, string? saidaDe = null, string? saidaAte = null,
+        bool incluirOcultos = false)
     {
         EstadoAluguel? estadoFiltro = null;
         if (estado is not null)
@@ -32,18 +38,70 @@ public sealed class AlugueisController(CasosEdicaoAluguel edicao, CasosConsultaA
 
         var filtro = new FiltroConsultaAlugueis(estadoFiltro, veiculoId,
             saidaDe is null ? null : InstanteTransporte.Ler(saidaDe, "saidaDe"),
-            saidaAte is null ? null : InstanteTransporte.Ler(saidaAte, "saidaAte"));
+            saidaAte is null ? null : InstanteTransporte.Ler(saidaAte, "saidaAte"), incluirOcultos);
         var pagina = await consulta.ListarAsync(new Paginacao(page, pageSize), filtro, cancelamento);
         return Ok(new Pagina<SaidaItemListaAluguel>(pagina.Items.Select(SaidaItemListaAluguel.De).ToArray(),
             pagina.Page, pagina.PageSize, pagina.Total));
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Consultar(Guid id, CancellationToken cancelamento)
+    [ProducesResponseType<SaidaContrato>(200)]
+    public async Task<IActionResult> Consultar(Guid id, CancellationToken cancelamento, bool incluirOcultos = false)
     {
-        var resultado = await consulta.ConsultarAsync(id, cancelamento);
+        var resultado = await consulta.ConsultarAsync(id, incluirOcultos, cancelamento);
         Response.Headers.ETag = VersaoCadastro.Etag(resultado.RowVersion);
-        return Ok(SaidaContrato.De(resultado.Revisao));
+        return Ok(SaidaContrato.De(resultado));
+    }
+
+    [HttpGet("referencias-veiculos")]
+    [ProducesResponseType<Pagina<ReferenciaVeiculoHistorico>>(200)]
+    public async Task<IActionResult> ReferenciasVeiculos(CancellationToken cancelamento, int page = 1,
+        int pageSize = 20, bool incluirOcultos = false)
+        => Ok(await consulta.ReferenciasVeiculosAsync(new Paginacao(page, pageSize), incluirOcultos, cancelamento));
+
+    [HttpPost("{id:guid}/devolucao/previa")]
+    [ProducesResponseType<SaidaPreviaDevolucao>(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(409)]
+    [ProducesResponseType(412)]
+    [ProducesResponseType(428)]
+    public async Task<IActionResult> PreviaDevolucao(Guid id, EntradaDevolucao entrada, CancellationToken cancelamento,
+        [FromHeader(Name = "If-Match")] string? versao = null)
+    {
+        var resultado = await devolucao.PreviaAsync(id, entrada.ParaComando(), versao, cancelamento);
+        Response.Headers.ETag = VersaoCadastro.Etag(resultado.RowVersion);
+        return Ok(SaidaPreviaDevolucao.De(resultado));
+    }
+
+    [HttpPost("{id:guid}/devolucao")]
+    [ProducesResponseType<SaidaDevolucao>(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(409)]
+    [ProducesResponseType(412)]
+    [ProducesResponseType(428)]
+    public async Task<IActionResult> Devolver(Guid id, EntradaConclusaoDevolucao entrada, CancellationToken cancelamento,
+        [FromHeader(Name = "If-Match")] string? versao = null,
+        [FromHeader(Name = "Idempotency-Key")] string? chave = null)
+    {
+        var resultado = await devolucao.ConcluirAsync(id, entrada.ParaConclusao(), versao,
+            LerChaveIdempotente(chave), cancelamento);
+        Response.Headers.ETag = VersaoCadastro.Etag(resultado.RowVersion);
+        return Ok(new SaidaDevolucao(resultado.AluguelId, "Concluido", SaidaFinalDevolucao.De(resultado.Demonstrativo)));
+    }
+
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(409)]
+    [ProducesResponseType(412)]
+    [ProducesResponseType(428)]
+    public async Task<IActionResult> Ocultar(Guid id, CancellationToken cancelamento,
+        [FromHeader(Name = "If-Match")] string? versao = null)
+    {
+        await ocultacao.OcultarAsync(id, versao, cancelamento);
+        return NoContent();
     }
 
     [HttpPost("estimativas")]
@@ -73,9 +131,11 @@ public sealed class AlugueisController(CasosEdicaoAluguel edicao, CasosConsultaA
     }
 
     private static Guid LerChaveIdempotente(IHeaderDictionary headers)
+        => LerChaveIdempotente(headers["Idempotency-Key"].ToString());
+
+    private static Guid LerChaveIdempotente(string? valor)
     {
-        if (!headers.TryGetValue("Idempotency-Key", out var valores)
-            || !Guid.TryParse(valores.FirstOrDefault(), out var chave))
+        if (!Guid.TryParse(valor, out var chave))
         {
             throw new ValidacaoCadastroException("idempotencyKey",
                 "Informe o cabeçalho Idempotency-Key com um GUID válido.");

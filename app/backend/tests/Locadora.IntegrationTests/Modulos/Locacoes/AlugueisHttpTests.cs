@@ -179,7 +179,7 @@ public sealed class AlugueisHttpTests
             using var invalido = await cliente.PostAsJsonAsync("/api/v1/alugueis/estimativas", entrada);
             Assert.AreEqual(HttpStatusCode.BadRequest, invalido.StatusCode);
         }
-        foreach (var filtro in new[] { "estado=Concluido", "pageSize=101", "saidaDe=2026-11-25", "saidaDe=2026-11-25T13:00:00Z&saidaAte=2026-11-24T13:00:00Z" })
+        foreach (var filtro in new[] { "estado=Cancelado", "pageSize=101", "saidaDe=2026-11-25", "saidaDe=2026-11-25T13:00:00Z&saidaAte=2026-11-24T13:00:00Z" })
         {
             using var invalido = await cliente.GetAsync($"/api/v1/alugueis?{filtro}");
             Assert.AreEqual(HttpStatusCode.BadRequest, invalido.StatusCode);
@@ -188,7 +188,7 @@ public sealed class AlugueisHttpTests
         Assert.AreEqual(HttpStatusCode.OK, openapi.StatusCode);
         var caminhos = (await ApiCliente.JsonAsync(openapi)).GetProperty("paths");
         Assert.AreEqual(2, caminhos.GetProperty("/api/v1/alugueis").EnumerateObject().Count());
-        Assert.AreEqual(2, caminhos.GetProperty("/api/v1/alugueis/{id}").EnumerateObject().Count());
+        Assert.AreEqual(3, caminhos.GetProperty("/api/v1/alugueis/{id}").EnumerateObject().Count());
         Assert.AreEqual(1, caminhos.GetProperty("/api/v1/alugueis/estimativas").EnumerateObject().Count());
         Assert.AreEqual(0, await a.Banco.Alugueis.CountAsync());
     }
@@ -230,7 +230,12 @@ public sealed class AlugueisHttpTests
     {
         public Task<Pagina<ItemListaAluguel>> ListarAsync(Paginacao paginacao, FiltroConsultaAlugueis filtro, CancellationToken cancelamento)
             => throw new ArmazenamentoIndisponivelException();
-        public Task<ResultadoContratacao> ConsultarAsync(Guid id, CancellationToken cancelamento)
+        public Task<ResultadoConsultaAluguel> ConsultarAsync(Guid id, CancellationToken cancelamento)
+            => throw new ArmazenamentoIndisponivelException();
+        public Task<ResultadoConsultaAluguel> ConsultarAsync(Guid id, bool incluirOcultos, CancellationToken cancelamento)
+            => throw new ArmazenamentoIndisponivelException();
+        public Task<Pagina<ReferenciaVeiculoHistorico>> ReferenciasVeiculosAsync(Paginacao paginacao,
+            bool incluirOcultos, CancellationToken cancelamento)
             => throw new ArmazenamentoIndisponivelException();
     }
 

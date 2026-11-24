@@ -81,7 +81,7 @@ public sealed class ConsultasAlugueisSqlTests
         Assert.AreEqual(1, (await ApiCliente.JsonAsync(estado)).GetProperty("total").GetInt32());
         using var periodoInvalido = await cliente.GetAsync($"/api/v1/alugueis?saidaDe={Uri.EscapeDataString(limite)}&saidaAte={Uri.EscapeDataString(saida)}");
         await ProblemaAsync(periodoInvalido, 400, "cadastro_invalido");
-        using var estadoInvalido = await cliente.GetAsync("/api/v1/alugueis?estado=Concluido");
+        using var estadoInvalido = await cliente.GetAsync("/api/v1/alugueis?estado=Cancelado");
         await ProblemaAsync(estadoInvalido, 400, "cadastro_invalido");
         await using var outra = await CenarioLocacoesSql.CriarAsync();
         using var filtroExterno = await cliente.GetAsync($"/api/v1/alugueis?veiculoId={outra.Dados.Veiculo.Id}");
