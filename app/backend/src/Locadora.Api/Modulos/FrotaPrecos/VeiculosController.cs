@@ -1,6 +1,7 @@
 using Locadora.Api.Host;
 using Locadora.Application.Modulos.FrotaPrecos;
 using Locadora.Application.Modulos.Transversal;
+using Locadora.Application.Modulos.Locacoes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,12 +11,16 @@ namespace Locadora.Api.Modulos.FrotaPrecos;
 [Authorize]
 [ServiceFilter(typeof(FiltroSemCache))]
 [Route("/api/v1/veiculos")]
-public sealed class VeiculosController(CasosVeiculos casos) : ControllerBase
+public sealed class VeiculosController(CasosVeiculos casos, CasosSelecoesLocacao selecoes) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Listar(CancellationToken cancelamento, Guid? grupoId = null, int page = 1, int pageSize = 20)
+    public async Task<IActionResult> Listar(CancellationToken cancelamento, Guid? grupoId = null, int page = 1,
+        int pageSize = 20, bool somenteDisponiveis = false, Guid? aluguelEmEdicaoId = null)
     {
-        var pagina = await casos.ListarAsync(new Paginacao(page, pageSize), grupoId, cancelamento);
+        var paginacao = new Paginacao(page, pageSize);
+        var pagina = somenteDisponiveis || aluguelEmEdicaoId is not null
+            ? await selecoes.VeiculosAsync(paginacao, grupoId, somenteDisponiveis, aluguelEmEdicaoId, cancelamento)
+            : await casos.ListarAsync(paginacao, grupoId, cancelamento);
         return Ok(new Pagina<SaidaVeiculo>(pagina.Items.Select(SaidaVeiculo.De).ToArray(),
             pagina.Page, pagina.PageSize, pagina.Total));
     }

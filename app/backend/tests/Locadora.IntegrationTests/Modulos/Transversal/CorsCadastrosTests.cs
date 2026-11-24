@@ -7,6 +7,24 @@ namespace Locadora.IntegrationTests.Modulos.Transversal;
 public sealed class CorsCadastrosTests
 {
     [TestMethod]
+    public async Task PreflightPermitePostComIdempotencyKey()
+    {
+        using var cliente = Clientes.Criar();
+        using var pedido = new HttpRequestMessage(HttpMethod.Options, "/api/v1/alugueis");
+        pedido.Headers.Add("Origin", "http://localhost:4200");
+        pedido.Headers.Add("Access-Control-Request-Method", "POST");
+        pedido.Headers.Add("Access-Control-Request-Headers", "authorization,content-type,idempotency-key");
+
+        using var resposta = await cliente.SendAsync(pedido);
+
+        Assert.AreEqual(HttpStatusCode.NoContent, resposta.StatusCode);
+        Assert.AreEqual("http://localhost:4200", resposta.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        var permitidos = resposta.Headers.GetValues("Access-Control-Allow-Headers").Single().Split(',');
+        Assert.IsTrue(permitidos.Contains("Idempotency-Key", StringComparer.OrdinalIgnoreCase));
+        ApiCliente.SemCookie(resposta);
+    }
+
+    [TestMethod]
     [DataRow("PUT")]
     [DataRow("DELETE")]
     public async Task PreflightPermiteMutacoesComIfMatchSemCredenciais(string metodo)

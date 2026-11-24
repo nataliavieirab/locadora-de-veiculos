@@ -1,6 +1,7 @@
 using Locadora.Api.Host;
 using Locadora.Application.Modulos.Pessoas;
 using Locadora.Application.Modulos.Transversal;
+using Locadora.Application.Modulos.Locacoes;
 using Locadora.Domain.Modulos.Pessoas;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,12 +12,16 @@ namespace Locadora.Api.Modulos.Pessoas;
 [Authorize]
 [ServiceFilter(typeof(FiltroSemCache))]
 [Route("/api/v1/condutores")]
-public sealed class CondutoresController(CasosPessoas casos) : ControllerBase
+public sealed class CondutoresController(CasosPessoas casos, CasosSelecoesLocacao selecoes) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<Pagina<SaidaCondutor>>> Listar(CancellationToken cancelamento, int page = 1, int pageSize = 20)
+    public async Task<ActionResult<Pagina<SaidaCondutor>>> Listar(CancellationToken cancelamento, int page = 1,
+        int pageSize = 20, Guid? clienteId = null)
     {
-        var pagina = await casos.ListarCondutoresAsync(new Paginacao(page, pageSize), cancelamento);
+        var paginacao = new Paginacao(page, pageSize);
+        var pagina = clienteId is Guid id
+            ? await selecoes.CondutoresAsync(paginacao, id, cancelamento)
+            : await casos.ListarCondutoresAsync(paginacao, cancelamento);
         var itens = new List<SaidaCondutor>();
         foreach (var condutor in pagina.Items)
         {
