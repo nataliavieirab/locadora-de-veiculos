@@ -1,0 +1,44 @@
+# Verificação do cálculo final puro — tarefa 2.1
+
+## Escopo e estado — 24/11/2026
+
+- Implementado somente o cálculo puro de domínio autorizado, na branch `feat/fase-4-devolucao-operacao-local`. Artefatos e DT-25–27 aprovados conforme TDD §8.7; tarefa 1.2 encerrada antes do início de 2.1.
+- Código: `app/backend/src/Locadora.Domain/Modulos/Locacoes/CalculadoraDevolucao.cs`; testes: `app/backend/tests/Locadora.Domain.Tests/Modulos/Locacoes/CalculadoraDevolucaoTests.cs`.
+- `OrigemInclusao.Devolucao` acrescentada ao final do enum em `ItemContratado.cs`, preservando os valores numéricos de Contratacao/Edicao. Usada aqui para identificar componentes calculados; não altera itens persistidos/revisões nem o schema F3.
+- Não implementados nesta tarefa: transição do agregado, demonstrativo persistido, seleção SQL da última vigência, autorização de referências, aceite SHA-256, prévia HTTP, idempotência, conclusão transacional, consultas/ocultação ou interface. Permanecem nas tarefas seguintes. Sem migration ou mudança de dependência/configuração.
+
+## Contratos de cálculo e precisão
+
+- `EntradaCalculoFinal` recebe saída, previsão e retorno real como `DateTimeOffset`, hodômetros `int`, plano/ID preservados, combustível/capacidade contratados, litros finais, versão de combustível e adicionais com origem de inclusão. Resultado copia a coleção e normaliza instantes para UTC; não consulta relógio, cadastro, transporte ou persistência.
+- `ResultadoCalculoFinal` é separado de `ResultadoCalculo` da contratação: K obrigatório, franquia/excedente aplicáveis, termos brutos do plano, litros repostos, atraso, componentes e `TotalFinal`. Não herda indicadores de pendência. Versão **`devolucao-v1`**; contratação mantém **`contratacao-v1`**. A versão identifica a regra e não representa ETag nem o aceite da futura prévia.
+- Reutiliza `CalculadoraLocacao` para duração UTC, plano, adicionais, validação de preços/identidades e arredondamento. Erro genérico de intervalo do cálculo compartilhado é associado a `devolucao`, sem alterar o contrato F3.
+- Retorno real pode ser igual à saída; previsão deve ser posterior. Não há limite de futuro inventado. Hodômetros inteiros não negativos até `int.MaxValue`, final ≥ inicial. Entrada fracionária não é representável no tipo do domínio; a rejeição do JSON fracionário exige teste HTTP posterior.
+- Capacidade positiva ≤ `999999999.999`, litros entre zero e capacidade, ambos com escala máxima de três casas. Preços não negativos ≤ `9999999999999.999999`, até seis casas, conforme a validação existente. Escala excessiva, inclusive zeros excedentes, é rejeitada, não reduzida silenciosamente.
+- Combustível exige versão explícita do mesmo tipo e vigência não posterior ao retorno, mesmo com tanque cheio; zero explícito é válido. A aplicação ainda deverá resolver a **última** versão aplicável (incluindo desempate serial), conferir empresa e converter ausência no conflito HTTP previsto. O cálculo puro não afirma ter feito essa seleção/autorização.
+- Componentes finais próprios possuem quantidade `decimal` (não o multiplicador inteiro da estimativa), categoria Plano/TaxaServico/Seguro/Combustivel/Multa, identidade de origem quando aplicável, modalidade/origem de inclusão dos adicionais, preço, bruto e arredondado.
+- Combustível: quantidade = capacidade − litros restantes; bruto preserva até nove casas. Multa: quantidade 1 quando há atraso (0 quando não), `PrecoUnitario = 0.10` identifica a alíquota, e bruto = B arredondado × alíquota. Assim como o plano, não se recompõe a multa apenas como quantidade × preço; sua base é o componente Plano preservado.
+- B soma os termos de diárias/km antes de arredondar; multa usa B arredondado. Cada taxa/seguro, combustível e multa arredonda separadamente por `AwayFromZero`; somente arredondados compõem o total. Saída limitada a `decimal(19,2)` (`99999999999999999.99`), com rejeição de componentes/soma fora do intervalo. Caução constante de R$ 1.000 não integra o total.
+- Taxas/seguros repetidos são rejeitados pelo calculador compartilhado; origem Devolucao só aceita taxas. Preços e origens de contratação/edição são dados de entrada preservados, sem releitura de cadastro. Coleções do resultado não permitem alteração; recomposição usa exatamente as entradas copiadas.
+
+## Evidências rastreáveis — MSTest
+
+- **RN-01 / CA-07 / F4-CA-01:** `Rn01Ca07ContaDuracaoRealInclusiveZeroELimiteDeUmTick` (quatro DataRows) cobre duração zero, 24h, 24h+1min e 24h+1tick. `Rn01UsaInstantesUtcInclusiveTransicoesHistoricas` cobre offsets equivalentes e transições históricas de São Paulo; o cálculo não conta dias civis.
+- **RN-02–05 / CA-07 / F4-CA-01:** `Rn02A05Ca07TresPlanosPreservamTermosEFranquia` prova B=500/300/200, K obrigatório, franquia/excedente, abaixo/no limite da franquia e Livre sem cobrança para qualquer K válido testado, incluindo `int.MaxValue`.
+- **RN-06–09 / CA-08 / F4-CA-03/04:** `Rn06A09Ca08Somam334Ou354ComCaucaoSeparadaEAtrasoSemNovaDiaria` prova componentes 200+30+20+10+14+60+0/20, totais 334/354, mesma D e caução separada. `Rn08AtrasoDeUmTickCobraUmaMultaENaoIncideSobreDemaisComponentes` prova ausência de tolerância e de incidência sobre adicionais elevados/combustível, além de retorno antecipado.
+- **RN-06 / CA-12 / F4-DE-02, F4-CA-04:** `Rn06Ca12TaxaNovaUsaTodasAsDiariasEIdentificaOrigemSemReescreverItens` prova preço × D completo e origem Devolucao, conservando Contratacao/Edicao. `Rn06RejeitaTaxaRepetidaEntreOrigensESeguroIncluidoNaDevolucao` nega duplicação, seguro novo, origem inválida e preços inválidos.
+- **RN-07 / CA-08 / F4-CA-02:** `Rn07UsaLitrosFracionariosEConservaNoveCasasBrutasSemTruncar` prova 10,123 × 6,123456 = 61,987745088 → 61,99, quantidade decimal e referência/vigência. `Rn07TanqueCheioEPrecoZeroSaoExplicitosMasAusenciaOuVigenciaFuturaNaoValem` cobre cheio/zero explícito/ausência e vigência no retorno ou um tick depois. Não substitui a prova SQL de seleção retroativa.
+- **RN-09 / CA-08 / F4-CA-04:** `Rn09SomaTermosDeBAntesDeArredondarEMultaUsaBArredondado` diferencia B=2,045→2,05 e multa=0,205→0,21 das alternativas incorretas. `Rn09CadaComponenteArredondaMeioParaCimaETotalNaoArredondaBrutosAgrupados` prova 1,005→1,01 em plano/taxa/combustível e soma 3,03.
+- **CA-09 / F4-DE-01:** `Ca09RejeitaRetornosInvalidosEHodometrosNegativosOuMenores` e `Ca09RejeitaLitrosCapacidadeEEscalaSemAjustarSilenciosamente` verificam limites/escala, datas, hodômetros e litros/capacidade. `RejeitaPrecoTipoEReferenciaDeCombustivelInvalidos` nega versão vazia, tipo incoerente/inválido e preços fora de escala/intervalo.
+- **DT-09 / F4-CA-05:** `RejeitaOverflowDeComponentesEDaSomaMesmoQuandoParcelasCabem`, `AceitaLimiteMonetarioExatoMasRejeitaUmCentavoAdicional` e `FranquiaUsaLongEDuracaoNaoInventaLimiteFuturoDoRetorno` verificam limites monetários, soma, multa excedente, zero explícito, franquia `long` e duração extrema representável.
+- **DT-08/09 / F4-CA-05:** `ResultadoNaoCompartilhaColecaoMutavelENaoDependeDeRelogioOuCadastro` prova cópia e coleções somente leitura, além de recomposição idêntica. `ValidaParametrosDoPlanoAntesDeCalcularESemRegressaoDaEstimativa` verifica erros do plano e preservação dos indicadores da estimativa F3. Isso ainda não prova imutabilidade persistida nem CA-12 após alteração real do cadastro.
+
+## Execuções e resultados
+
+Em `app/backend`, sem restore/instalação:
+
+1. `dotnet build Locadora.slnx --no-restore`: primeira tentativa falhou por **MSTEST0032** em asserção entre duas constantes; removida a asserção redundante sem suprimir o analyzer.
+2. Build seguinte passou; domínio teve **84 aprovados/1 falha**, por erro na expectativa manual do teste de multiplicação fracionária (esperado incorreto 61,987746688; produto correto 61,987745088). Corrigido somente o valor esperado; fórmula decimal preservada.
+3. Após acrescentar testes de fronteira, build passou; domínio teve **86 aprovados/1 falha**, porque a validação compartilhada retornava campo `estimativa` no excesso do subtotal. Adaptado o campo para `devolucao` no novo calculador, preservando mensagem e comportamento F3.
+4. Execução final: `dotnet build Locadora.slnx --no-restore` **aprovado, zero avisos/erros**; `dotnet test tests/Locadora.Domain.Tests --no-build --no-restore --logger 'console;verbosity=minimal'` **87/87**, zero falhas/ignorados; `dotnet test tests/Locadora.Application.Tests --no-build --no-restore --logger 'console;verbosity=minimal'` **57/57**, zero falhas/ignorados.
+
+Domínio passou de 65 para **87 casos**, ou seja, **22 novos casos** (incluindo quatro DataRows). Execuções intermediárias não são somadas ao total final. A tarefa 2.1 não depende de SQL/SPA e não os alterou; SQL, Vitest, build Angular e E2E **não foram reexecutados nesta entrega**, permanecendo históricos os resultados do baseline. Provas de transporte, agregado, atomicidade, isolamento, paridade visual, homologação/publicação e aceite da fase não são inferidas destes testes.
