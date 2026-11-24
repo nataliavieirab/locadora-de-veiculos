@@ -1,0 +1,134 @@
+<app-shell-cadastral conteudoId="conteudo-devolucao">
+  <main id="conteudo-devolucao" class="mx-auto max-w-7xl px-5 py-9 sm:px-10">
+    <a routerLink="/alugueis" (click)="bloquearVolta($event)" class="mb-6 inline-block font-semibold text-blue-900">← Voltar para aluguéis</a>
+    <p class="text-xs font-bold tracking-widest text-blue-900 uppercase">Locações / Devolução</p>
+    <h1 id="titulo-devolucao" tabindex="-1" class="mt-2 text-3xl font-bold tracking-tight">{{ finalAtual() ? 'Devolução concluída' : 'Registrar devolução' }}</h1>
+    <p class="mt-2 mb-6 text-stone-600">{{ finalAtual() ? 'Contrato encerrado com os valores efetivos preservados.' : 'Confira o retorno, revise os valores e conclua a locação com segurança.' }}</p>
+    <app-resumo-erro identificador="erro-devolucao" [mensagem]="erro()" />
+    @if (exigirRecarga()) { <button type="button" class="mb-5 rounded-lg border border-stone-400 px-4 py-3" (click)="carregar()">Recarregar contrato</button> }
+    @if (incerto()) {
+      <section id="incerto-devolucao" role="alert" tabindex="-1" class="mb-6 rounded-lg border border-blue-300 bg-blue-50 p-5">
+        <h2 class="font-semibold">A devolução pode ter sido registrada.</h2>
+        <p>A resposta não foi confirmada. Não inicie outra tentativa. Recarregar ou fechar perde os dados locais desta aba.</p>
+        <button type="button" [disabled]="enviando()" (click)="verificar()" class="mt-4 rounded-lg bg-blue-900 px-4 py-3 font-semibold text-white">Verificar devolução</button>
+      </section>
+    }
+    @if (reautenticar()) {
+      <form (submit)="entrarNovamente($event, usuario, senha)" class="mb-6 grid max-w-md gap-3 rounded-lg border border-stone-300 bg-white p-5">
+        <p>Reautentique com a mesma conta para verificar a tentativa.</p>
+        <label>Usuário<input #usuario autocomplete="username" required class="block w-full rounded-lg border border-stone-400 p-3" /></label>
+        <label>Senha<input #senha type="password" autocomplete="current-password" required class="block w-full rounded-lg border border-stone-400 p-3" /></label>
+        <button type="submit" class="rounded-lg bg-blue-900 px-4 py-3 text-white">Reautenticar</button>
+      </form>
+    }
+    @if (resultado()) { <p id="sucesso-devolucao" role="status" tabindex="-1" class="mb-6 rounded-lg border border-green-600 bg-green-50 p-5">Locação concluída e veículo disponível. O demonstrativo final foi preservado. A caução não foi movimentada.</p> }
+    @if (carregando()) {
+      <p role="status" class="py-10 text-stone-600">Carregando contrato e taxas…</p>
+    } @else if (erroCarga()) {
+      <button type="button" class="mt-4 rounded-lg border border-stone-400 bg-white px-4 py-3" (click)="carregar()">Tentar novamente</button>
+    } @else if (contrato(); as c) {
+      <ng-template #contextoContrato>
+      <section aria-label="Contrato preservado" class="mb-6 rounded-xl border border-stone-300 bg-white">
+        <header class="flex flex-wrap justify-between gap-3 border-b border-stone-200 bg-stone-50 p-5">
+          <strong class="break-all font-mono text-xs">{{ c.id }}</strong>
+          <span>{{ aberto() ? 'Em aberto' : 'Concluído · somente consulta' }} · Revisão {{ c.revisao }}</span>
+        </header>
+        <dl class="grid gap-5 p-5 md:grid-cols-3">
+          <div><dt class="text-xs text-stone-600">Cliente e condutor</dt><dd class="font-semibold">{{ c.cliente.nome }} · {{ c.condutor.nome }}</dd>
+            <dd class="text-xs text-stone-600">{{ c.cliente.tipo }} · {{ mascarar(c.cliente.cpf ?? c.cliente.cnpj) }}</dd>
+            <dd class="text-xs text-stone-600">CNH {{ mascarar(c.condutor.cnh) }} · válida até {{ c.condutor.validadeCnh.split('-').reverse().join('/') }}</dd></div>
+          <div><dt class="text-xs text-stone-600">Saída original / retorno previsto · São Paulo</dt><dd class="font-semibold">{{ formatarSp(c.saidaUtc) }}</dd><dd>{{ formatarSp(c.retornoPrevistoUtc) }}</dd></div>
+          <div><dt class="text-xs text-stone-600">Veículo e plano contratado</dt><dd class="font-semibold">{{ c.veiculo.placa }} · {{ c.veiculo.modelo }} · {{ c.veiculo.grupoNome }}</dd>
+            <dd>{{ rotulos[c.plano.modalidade] }} · {{ c.plano.precoDiario | moedaBrl }} por diária</dd>
+            @if (c.plano.precoKm) { <dd>{{ c.plano.precoKm | moedaBrl }} por km</dd> }
+            @if (c.plano.franquiaDiariaKm !== null) { <dd>{{ c.plano.franquiaDiariaKm }} km/dia · {{ c.plano.precoKmExcedente! | moedaBrl }}/km excedente</dd> }
+            @if (c.plano.modalidade === 'Livre') { <dd>Quilometragem registrada, sem cobrança.</dd> }
+            <dd>Hodômetro inicial: {{ c.hodometroInicial }} km</dd></div>
+        </dl>
+      </section>
+      </ng-template>
+      <ng-container [ngTemplateOutlet]="contextoContrato" />
+      @if (finalAtual(); as f) {
+        <ng-template #conteudoFinal>
+          <section aria-label="Dados efetivos preservados" class="mb-6 rounded-xl border border-stone-300 bg-white p-5">
+            <h2 class="text-lg font-semibold">Dados efetivos preservados</h2><p class="text-sm text-stone-600">Final imutável · Sem edição ou reabertura · Revisão {{ c.revisao }}</p>
+            <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+              <div><dt class="text-xs text-stone-600">Retorno real · São Paulo</dt><dd>{{ formatarSp(f.calculo.retornoRealUtc) }}</dd></div>
+              <div><dt class="text-xs text-stone-600">Hodômetro final</dt><dd>{{ f.calculo.hodometroFinal }} km</dd></div>
+              <div><dt class="text-xs text-stone-600">Litros restantes / capacidade</dt><dd>{{ litros(f.calculo.litrosRestantes) }} / {{ litros(f.calculo.capacidadeLitros) }} L</dd></div>
+              <div><dt class="text-xs text-stone-600">Referência do demonstrativo final</dt><dd class="break-all font-mono text-xs">{{ f.id }}</dd></div>
+            </dl>
+          </section>
+          <app-apuracao-devolucao [dados]="f.calculo" [final]="true" />
+        </ng-template>
+        <button id="consultar-final" type="button" class="mb-5 rounded-lg border border-stone-400 bg-white px-4 py-3 font-semibold" (click)="abrirConsultaFinal()">Consultar contrato</button>
+        <ng-container [ngTemplateOutlet]="conteudoFinal" />
+        <dialog #consultaFinal aria-labelledby="titulo-consulta-final" (close)="consultaFinalFechada()" (keydown)="teclaConsultaFinal($event)"
+          class="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-3xl overflow-auto border-l border-stone-300 bg-white p-0 text-stone-950 shadow-xl backdrop:bg-stone-950/40">
+          <header class="flex items-start justify-between gap-3 border-b border-stone-300 p-5"><h2 id="titulo-consulta-final" class="text-xl font-semibold">Consulta de contrato · Final imutável</h2>
+            <button type="button" aria-label="Fechar consulta" class="rounded-lg border border-stone-400 px-3 py-2" (click)="fecharConsultaFinal()">✕</button></header>
+          <div class="p-5"><ng-container [ngTemplateOutlet]="contextoContrato" /><ng-container [ngTemplateOutlet]="conteudoFinal" /></div>
+          <footer class="flex justify-end border-t border-stone-300 p-5"><button type="button" class="rounded-lg border border-stone-400 px-4 py-3" (click)="fecharConsultaFinal()">Fechar</button></footer>
+        </dialog>
+      }
+      @if (aberto() && !resultado()) {
+        <form novalidate (submit)="confirmar($event)" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <fieldset [disabled]="congelado()" class="grid min-w-0 gap-6">
+            <legend class="sr-only">Dados da devolução</legend>
+            <section aria-labelledby="dados-retorno" class="rounded-xl border border-stone-300 bg-white">
+              <header class="border-b border-stone-200 p-5"><h2 id="dados-retorno" class="text-lg font-semibold">01 · Dados do retorno</h2><p class="text-sm text-stone-600">Use os valores reais. O contrato e os preços mantidos não mudam.</p></header>
+              <div class="grid gap-5 p-5 sm:grid-cols-2">
+                <div class="sm:col-span-2"><label for="retorno-real" class="block text-sm font-semibold">Data e hora real da devolução</label>
+                  <input id="retorno-real" type="datetime-local" [formField]="formulario.retornoLocal" aria-describedby="ajuda-retorno erro-retorno" class="mt-2 min-h-11 w-full rounded-lg border border-stone-400 px-3 py-2" />
+                  <p id="ajuda-retorno" class="mt-1 text-xs text-stone-600">Horário de São Paulo · America/Sao_Paulo. Não pode preceder a saída.</p>
+                  @if (formulario.retornoLocal().touched() && formulario.retornoLocal().invalid()) { <p id="erro-retorno" class="text-sm text-red-950">{{ mensagemCampo(formulario.retornoLocal().errors()) }}</p> }</div>
+                <div><label for="hodometro-final" class="block text-sm font-semibold">Hodômetro final (km)</label>
+                  <input id="hodometro-final" inputmode="numeric" [formField]="formulario.hodometroFinal" aria-describedby="ajuda-hodometro erro-hodometro" class="mt-2 min-h-11 w-full rounded-lg border border-stone-400 px-3 py-2" />
+                  <p id="ajuda-hodometro" class="mt-1 text-xs text-stone-600">Inicial: {{ c.hodometroInicial }} km · Somente quilômetros inteiros.</p>
+                  @if (formulario.hodometroFinal().touched() && formulario.hodometroFinal().invalid()) { <p id="erro-hodometro" class="text-sm text-red-950">{{ mensagemCampo(formulario.hodometroFinal().errors()) }}</p> }</div>
+                <div><label for="litros-restantes" class="block text-sm font-semibold">Litros restantes no tanque</label>
+                  <input id="litros-restantes" inputmode="decimal" [formField]="formulario.litrosRestantes" aria-describedby="ajuda-litros erro-litros" class="mt-2 min-h-11 w-full rounded-lg border border-stone-400 px-3 py-2" />
+                  <p id="ajuda-litros" class="mt-1 text-xs text-stone-600">De 0 a {{ litros(c.veiculo.capacidadeLitros) }} L · Até três casas decimais.</p>
+                  @if (formulario.litrosRestantes().touched() && formulario.litrosRestantes().invalid()) { <p id="erro-litros" class="text-sm text-red-950">{{ mensagemCampo(formulario.litrosRestantes().errors()) }}</p> }</div>
+                <p class="rounded-lg bg-stone-50 p-3 text-sm sm:col-span-2">{{ c.veiculo.combustivel }} · Capacidade contratada: {{ litros(c.veiculo.capacidadeLitros) }} L. Saída com tanque cheio. A reposição usa o preço vigente no retorno, sem taxa extra.</p>
+              </div>
+            </section>
+            <section aria-labelledby="taxas-retorno" class="rounded-xl border border-stone-300 bg-white">
+              <header class="border-b border-stone-200 p-5"><h2 id="taxas-retorno" class="text-lg font-semibold">02 · Taxas e itens preservados</h2><p class="text-sm text-stone-600">Adicione apenas o que ainda não faz parte do contrato.</p></header>
+              <div class="space-y-4 p-5"><h3 class="font-semibold">Já contratados · preços preservados</h3>
+                @for (item of c.itens; track item.categoria + item.origemId + item.tipoSeguro) {
+                  <p class="flex flex-wrap justify-between gap-3 text-sm"><span>{{ item.nome }}<small class="block text-stone-600">{{ item.modalidade === 'Diaria' ? 'Por diária' : 'Taxa fixa' }} · {{ item.origemInclusao === 'Contratacao' ? 'Contratação' : 'Edição' }}</small></span><strong>{{ item.precoUnitario | moedaBrl }}</strong></p>
+                } @empty { <p class="text-sm text-stone-600">Sem taxas ou seguros contratados.</p> }
+                <h3 class="border-t border-stone-200 pt-4 font-semibold">Disponível para incluir na devolução</h3>
+                @for (taxa of disponiveis(); track taxa.id) {
+                  <label class="flex flex-wrap items-center gap-3 rounded-lg border border-stone-200 p-3">
+                    <input type="checkbox" [checked]="taxasMarcadas().includes(taxa.id)" (change)="alternarTaxa(taxa.id, $any($event.target).checked)" />
+                    <span class="grow">{{ taxa.nome }}<small class="block text-stone-600">{{ taxa.modalidade === 'Diaria' ? 'Taxa diária · todas as diárias efetivas' : 'Taxa fixa' }}</small></span>
+                    <strong>{{ taxa.preco | moedaBrl }}</strong>
+                  </label>
+                } @empty { <p class="text-sm text-stone-600">Não há taxas adicionais disponíveis. Você pode concluir sem incluir novos itens.</p> }
+                <p class="text-xs text-stone-600">Itens contratados não podem ser removidos aqui. Não há inclusão de seguros na devolução.</p>
+              </div>
+            </section>
+          </fieldset>
+          <aside class="space-y-4" aria-live="polite">
+            @if (previaDesatualizada()) { <p class="rounded-lg bg-amber-50 p-4 text-amber-950">Dados alterados. Calcule uma nova prévia antes de confirmar.</p> }
+            @if (calculando()) { <p role="status">Calculando prévia…</p> }
+            @else if (previa(); as p) { <app-apuracao-devolucao [dados]="p.calculo" /> }
+            @else { <section class="rounded-xl border border-stone-300 bg-white p-5"><h2 class="text-lg font-semibold">Prévia da devolução</h2><p class="mt-4 text-sm">Informe o retorno e calcule a prévia para conferir todos os componentes.</p><p class="mt-4 border-t border-stone-200 pt-4">Garantia · caução fixa {{ c.caucao | moedaBrl }}</p><p class="text-xs text-stone-600">Separada do custo. Não soma, não abate e não é movimentada.</p></section> }
+            <p class="text-xs text-stone-600">Calcular não conclui nem libera o veículo. Os dados e as versões dos preços são revalidados na confirmação.</p>
+          </aside>
+          <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-stone-300 pt-5 lg:col-span-2">
+            <p class="max-w-xl text-sm text-stone-600">Ao confirmar, você aceita os valores da prévia. A locação será concluída e o veículo ficará disponível no mesmo registro.</p>
+            <div class="flex flex-wrap gap-3">
+              <button type="button" [disabled]="congelado() || exigirRecarga()" (click)="calcular()" class="rounded-lg border border-stone-400 bg-white px-4 py-3 font-semibold disabled:opacity-50">Calcular prévia</button>
+              <button type="submit" [disabled]="congelado() || !previa() || exigirRecarga()" class="rounded-lg bg-blue-900 px-4 py-3 font-semibold text-white disabled:opacity-50">{{ enviando() ? 'Confirmando devolução…' : 'Confirmar devolução' }}</button>
+            </div>
+          </footer>
+        </form>
+      } @else if (!finalAtual()) {
+        <p role="status" class="rounded-lg border border-stone-300 bg-white p-5">Este contrato já está concluído. Não admite edição, nova devolução ou reabertura.</p>
+      }
+    }
+  </main>
+</app-shell-cadastral>

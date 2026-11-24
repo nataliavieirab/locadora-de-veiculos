@@ -3,8 +3,11 @@ import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { URL_API } from '../../core/configuracao';
 import { Pagina, Recurso } from '../frota/grupos-planos.service';
+import { EntradaConclusaoDevolucao, EntradaDevolucao, FinalDevolucao, PreviaDevolucao, ResultadoDevolucao } from './devolucao.contratos';
 
 export interface ItemListaAluguel {
+  totalFinal?: string | null;
+  oculto?: boolean;
   id: string;
   estado: string;
   revisao: number;
@@ -47,6 +50,8 @@ export interface EstimativaContrato {
 }
 
 export interface ContratoAluguel {
+  oculto?: boolean;
+  devolucao?: FinalDevolucao | null;
   id: string;
   estado: string;
   revisao: number;
@@ -86,6 +91,7 @@ export interface ContratoAluguel {
 }
 
 export interface FiltroAlugueis {
+  incluirOcultos?: boolean;
   estado?: string;
   veiculoId?: string;
   saidaDe?: string;
@@ -118,11 +124,13 @@ export class AlugueisService {
     if (filtro.veiculoId) params['veiculoId'] = filtro.veiculoId;
     if (filtro.saidaDe) params['saidaDe'] = filtro.saidaDe;
     if (filtro.saidaAte) params['saidaAte'] = filtro.saidaAte;
+    if (filtro.incluirOcultos) params['incluirOcultos'] = 'true';
     return firstValueFrom(this.http.get<Pagina<ItemListaAluguel>>(this.base, { params }));
   }
 
-  async consultar(id: string): Promise<Recurso<ContratoAluguel>> {
-    const resposta = await firstValueFrom(this.http.get<ContratoAluguel>(`${this.base}/${id}`, { observe: 'response' }));
+  async consultar(id: string, incluirOcultos = false): Promise<Recurso<ContratoAluguel>> {
+    const params = incluirOcultos ? { incluirOcultos: 'true' } : undefined;
+    const resposta = await firstValueFrom(this.http.get<ContratoAluguel>(`${this.base}/${id}`, { observe: 'response', params }));
     const etag = resposta.headers.get('ETag');
     if (!resposta.body || !etag) throw new Error('A API não retornou os dados e a versão esperados.');
     return { dados: resposta.body, etag };
@@ -152,4 +160,41 @@ export class AlugueisService {
     if (!resposta.body || !etag) throw new Error('A API não confirmou a edição com a versão esperada.');
     return { dados: resposta.body, etag };
   }
+
+  previaDevolucao(id: string, entrada: EntradaDevolucao, ifMatch: string): Promise<PreviaDevolucao> {
+    return firstValueFrom(this.http.post<PreviaDevolucao>(`${this.base}/${id}/devolucao/previa`, entrada, {
+      headers: { 'If-Match': ifMatch },
+    }));
+  }
+
+  referenciasVeiculos(page = 1, incluirOcultos = false): Promise<Pagina<ReferenciaVeiculoHistorico>> {
+    return firstValueFrom(this.http.get<Pagina<ReferenciaVeiculoHistorico>>(`${this.base}/referencias-veiculos`, {
+      params: { page, pageSize: 20, incluirOcultos },
+    }));
+  }
+
+  async todasReferenciasVeiculos(incluirOcultos = false): Promise<ReferenciaVeiculoHistorico[]> {
+    const itens: ReferenciaVeiculoHistorico[] = [];
+    let page = 1;
+    for (;;) {
+      const resposta = await this.referenciasVeiculos(page++, incluirOcultos);
+      itens.push(...resposta.items);
+      if (!resposta.items.length || resposta.page * resposta.pageSize >= resposta.total) return itens;
+    }
+  }
+
+  ocultar(id: string, ifMatch: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${this.base}/${id}`, { headers: { 'If-Match': ifMatch } }));
+  }
+
+  async devolver(id: string, entrada: EntradaConclusaoDevolucao, ifMatch: string, chave: string): Promise<Recurso<ResultadoDevolucao>> {
+    const resposta = await firstValueFrom(this.http.post<ResultadoDevolucao>(`${this.base}/${id}/devolucao`, entrada, {
+      observe: 'response', headers: { 'If-Match': ifMatch, 'Idempotency-Key': chave },
+    }));
+    const etag = resposta.headers.get('ETag');
+    if (!resposta.body || !etag) throw new Error('A API não confirmou a devolução com a versão esperada.');
+    return { dados: resposta.body, etag };
+  }
 }
+
+export interface ReferenciaVeiculoHistorico { id: string; placa: string; modelo: string }
