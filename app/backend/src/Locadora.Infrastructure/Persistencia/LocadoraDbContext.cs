@@ -1,6 +1,7 @@
 using Locadora.Domain.Modulos.Acesso;
 using Locadora.Domain.Modulos.FrotaPrecos;
 using Locadora.Domain.Modulos.Pessoas;
+using Locadora.Domain.Modulos.Locacoes;
 using Locadora.Domain.Modulos.Transversal;
 using Locadora.Infrastructure.Modulos.Acesso.Registro;
 using Locadora.Infrastructure.Modulos.Transversal;
@@ -39,6 +40,12 @@ public sealed class LocadoraDbContext : IdentityUserContext<UsuarioConta, Guid>
     public DbSet<PrecoSeguro> PrecosSeguros => Set<PrecoSeguro>();
     public DbSet<PrecoCombustivel> PrecosCombustiveis => Set<PrecoCombustivel>();
     public DbSet<AuditoriaCadastro> AuditoriasCadastro => Set<AuditoriaCadastro>();
+    public DbSet<Aluguel> Alugueis => Set<Aluguel>();
+    public DbSet<RevisaoContrato> RevisoesContrato => Set<RevisaoContrato>();
+    public DbSet<ItemContratado> ItensContratados => Set<ItemContratado>();
+    public DbSet<DemonstrativoEstimado> DemonstrativosEstimados => Set<DemonstrativoEstimado>();
+    public DbSet<ComponenteEstimativa> ComponentesEstimativa => Set<ComponenteEstimativa>();
+    public DbSet<ComandoIdempotente> ComandosIdempotentes => Set<ComandoIdempotente>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -95,5 +102,12 @@ public sealed class LocadoraDbContext : IdentityUserContext<UsuarioConta, Guid>
         builder.Entity<PrecoSeguro>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
         builder.Entity<PrecoCombustivel>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
         builder.Entity<AuditoriaCadastro>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        MapeamentosLocacoes.Aplicar(builder);
+        builder.Entity<Aluguel>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        builder.Entity<RevisaoContrato>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        builder.Entity<ItemContratado>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        builder.Entity<DemonstrativoEstimado>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        builder.Entity<ComponenteEstimativa>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        builder.Entity<ComandoIdempotente>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
     }
 }
