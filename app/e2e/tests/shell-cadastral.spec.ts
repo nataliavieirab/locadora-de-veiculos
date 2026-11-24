@@ -10,6 +10,7 @@ test('shell cadastral protege rotas, navega em desktop/mobile e exige reautentic
   const destinos = [
     ['grupos-planos', 'Grupos e planos'], ['veiculos', 'Veículos'],
     ['clientes', 'Clientes e condutores'], ['precos-servicos', 'Preços e serviços'],
+    ['alugueis', 'Aluguéis'],
   ];
   for (const [rota] of destinos) {
     await page.goto(`/${rota}`);
