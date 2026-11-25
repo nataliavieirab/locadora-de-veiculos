@@ -46,6 +46,7 @@ Todas as mudanças devem ocorrer em uma feature branch criada a partir da `main`
 - Revisar e validar as especificações antes de iniciar a implementação.
 - Não iniciar código de uma funcionalidade com base apenas em uma descrição informal ou em uma especificação ainda não aprovada.
 - Implementar as tarefas na ordem e nos limites definidos pela especificação aprovada.
+- Executar o Apply em blocos delimitados, conforme a seção 9.
 - Atualizar especificações e documentação quando uma decisão técnica posterior exigir mudança.
 - Executar as validações previstas e registrar resultados reais.
 
@@ -74,6 +75,11 @@ Verificar a disponibilidade das ferramentas antes da etapa que depende delas. Es
 | Terminal e Git | Inspecionar repositório, branches, alterações, testes e commits | Obrigatórios para implementação e entrega. Preservar o trabalho existente. |
 | Documentação oficial e Context7, quando disponível | Verificar APIs, versões, compatibilidade e configurações | Necessários quando decisões ou implementação dependerem dessas informações. |
 | Runtime e ferramentas de qualidade do TDD | Build, testes, lint, formatação, análise de tipos e demais verificações | Utilizar conforme a stack e os critérios aplicáveis. |
+| `scripts/preflight.sh` | Verificar SDK, Docker, SQL Server, conexão de testes e OpenSpec antes de cada bloco de Apply | Obrigatório no início de bloco. `--subir` somente com autorização. |
+| `scripts/verificar.sh` | Executar build e testes com escopo explícito, logs resumidos e injeção segura da conexão | Obrigatório para verificar um bloco concluído. |
+| `scripts/progresso-apply.sh` | Calcular progresso e delimitar o bloco de tarefas do Apply | Obrigatório no kickoff e na retomada de cada bloco. |
+| Subagentes `explorador` e `verificador` | Busca somente leitura e verificação independente das edições | Recomendados quando a tarefa permitir paralelismo. |
+| Comandos `/kickoff-fase` e `/apply-bloco` | Preparar decisões e executar um bloco delimitado com retomada | Recomendados para o Apply das fases F5 e F6. |
 | GitHub MCP ou GitHub CLI (`gh`) | Consultar templates, PRs, checks e revisões; abrir e acompanhar PRs | Necessários para a etapa de PR, com autenticação e permissões adequadas. |
 
 Se uma ferramenta obrigatória estiver ausente ou sem acesso, registrar a etapa bloqueada e o que falta. Usar alternativa equivalente somente quando preservar as validações e restrições do fluxo. Nunca simular execução, aprovação ou verificação.
@@ -216,3 +222,77 @@ Ao concluir uma tarefa, informar objetivamente:
 - Estado real dos commits e do PR, quando aplicável.
 
 Não declarar uma tarefa, fase ou entrega concluída sem evidências. Não confundir documentação revisada com implementação, testes executados ou aprovação técnica.
+
+## 9. Execução eficiente das fases
+
+Estas regras organizam o Apply das fases F5 e F6 e as retomadas de qualquer fase.
+Elas não alteram requisitos, escopo nem critérios de aceite.
+
+### 9.1 Fatiar o Apply em blocos
+
+- Executar o Apply em blocos de até **6 tarefas** ou até o contexto da sessão
+  chegar a ~150 mil tokens, o que ocorrer primeiro.
+- No início do bloco, rodar `scripts/progresso-apply.sh <change> --bloco <n>`
+  para delimitar as tarefas.
+- No fim do bloco, atualizar `docs/retomada-<change>.md` a partir de
+  `docs/template-retomada-fase.md` e **encerrar a sessão**.
+- A sessão seguinte começa pelo arquivo de retomada. Não continuar o próximo
+  bloco na mesma sessão.
+- Se o bloco não couber em uma sessão, dividi-lo antes de começar.
+
+### 9.2 Um modelo por sessão
+
+- Definir modelo e variante no início do bloco e registrar no arquivo de retomada.
+- Não trocar de modelo no meio do bloco nem usar fallback de outra família para
+  "terminar".
+- Se o limite do provedor for atingido, encerrar o bloco, registrar o estado real
+  e retomar em sessão nova com o mesmo modelo quando disponível.
+- O modelo padrão do projeto está em `.opencode/opencode.jsonc`; os comandos
+  `/kickoff-fase` e `/apply-bloco` usam `openai/gpt-6.1-sol#high`.
+
+### 9.3 Paralelismo e subagentes
+
+- Agrupar no mesmo turno chamadas independentes de leitura, busca e verificação.
+- Usar o subagente `explorador` para localizar código, contratos e histórico.
+- Usar o subagente `verificador` para executar verificações independentes das
+  edições em andamento.
+- O resultado do subagente é insumo: a revisão e a decisão continuam no agente
+  principal.
+
+### 9.4 Verificação econômica
+
+- Usar `scripts/verificar.sh` com escopo explícito. A suíte completa fica para o
+  fim do bloco ou da fase.
+- Rodar o build uma vez por bloco; filtrar testes de integração pela área alterada.
+- Não repetir comando já executado sem mudança de código.
+- A saída completa fica em `.tmp/verificacao/`; levar ao contexto apenas o resumo
+  e as últimas linhas de falha.
+- Registrar no arquivo de retomada apenas verificações realmente executadas.
+
+### 9.5 Decisões antes da implementação
+
+- Resolver decisões de escopo, contrato, dados, segurança e UX no kickoff
+  (`/kickoff-fase`), com a ferramenta `question`.
+- Durante o bloco, interromper apenas por bloqueio real que mude contrato, escopo
+  ou regra de negócio.
+- Registrar cada decisão aprovada no arquivo de retomada.
+
+### 9.6 Prontidão do ambiente
+
+- Rodar `scripts/preflight.sh` antes do primeiro bloco e após qualquer mudança de
+  ambiente.
+- Usar `scripts/preflight.sh --subir` para iniciar o SQL Server do `compose.yml`
+  somente com autorização.
+- Não investigar Docker, volumes ou portas por tentativa e erro; usar o
+  diagnóstico do preflight.
+
+### 9.7 Segredos fora dos comandos
+
+- Nunca colar senha, connection string, token ou chave em comando de shell,
+  documento ou mensagem.
+- Usar `scripts/verificar.sh`, que lê `ConnectionStrings:Locadora` do
+  user-secrets e injeta a conexão apenas no processo filho, ou uma variável
+  `LOCADORA_SQL_CONNECTION` já definida no ambiente.
+- Rodar `scripts/verificar.sh --segredos` antes de commit e de PR.
+- Se um segredo aparecer em histórico, log ou sessão, registrar o incidente e
+  rotacionar a credencial.
