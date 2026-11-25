@@ -222,7 +222,7 @@ verificar_segredos() {
   fi
 
   local conexoes
-  conexoes="$(git grep -l -E 'LOCADORA_SQL_CONNECTION=.*(Password=|Pwd=)' -- . 2>/dev/null || true)"
+  conexoes="$(git grep -l -E 'LOCADORA_SQL_CONNECTION=.*(Password=|Pwd=)' -- . ':(exclude)scripts/verificar.sh' 2>/dev/null || true)"
   if [[ -n "$conexoes" ]]; then
     falha "connection string embutida em arquivos rastreados:"
     printf '%s\n' "$conexoes" | sed 's/^/        /'
