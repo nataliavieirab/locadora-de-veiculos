@@ -64,5 +64,8 @@ app/e2e/node_modules/
 app/e2e/playwright-report/
 app/e2e/test-results/
 
+# Artefatos locais de verificação
+/.tmp/
+
 # Documentação de planejamento local
 /docs/roadpmap-sdd.md
