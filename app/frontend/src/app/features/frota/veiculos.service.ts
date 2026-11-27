@@ -15,7 +15,10 @@ export interface DadosVeiculo {
   ano: number;
   grupoId: string;
 }
-export interface Veiculo extends DadosVeiculo { id: string }
+export interface FotoVeiculo {
+  id: string; caminho: string; mime: 'image/jpeg' | 'image/png'; tamanhoBytes: number; largura: number; altura: number;
+}
+export interface Veiculo extends DadosVeiculo { id: string; foto?: FotoVeiculo | null; possuiAluguelAberto?: boolean }
 
 @Injectable({ providedIn: 'root' })
 export class VeiculosService {
@@ -63,12 +66,36 @@ export class VeiculosService {
     return { dados: resposta.body, etag };
   }
 
-  async salvar(dados: DadosVeiculo, atual: Recurso<Veiculo> | null): Promise<void> {
-    if (atual) {
-      await firstValueFrom(this.http.put(`${this.base}/${atual.dados.id}`, dados, { headers: { 'If-Match': atual.etag } }));
-    } else {
-      await firstValueFrom(this.http.post(this.base, dados));
-    }
+  async salvar(dados: DadosVeiculo, atual: Recurso<Veiculo> | null): Promise<Recurso<Veiculo>> {
+    const resposta = await firstValueFrom(atual
+      ? this.http.put<Veiculo>(`${this.base}/${atual.dados.id}`, dados, { headers: { 'If-Match': atual.etag }, observe: 'response' })
+      : this.http.post<Veiculo>(this.base, dados, { observe: 'response' }));
+    const etag = resposta.headers.get('ETag');
+    if (!resposta.body || !etag) throw new Error('A API não retornou os dados e a versão esperados.');
+    return { dados: { ...resposta.body, foto: atual?.dados.foto ?? null, possuiAluguelAberto: atual?.dados.possuiAluguelAberto ?? false }, etag };
+  }
+
+  lerFoto(id: string): Promise<Blob> {
+    // A URL é construída localmente. Não seguir caminhos arbitrários recebidos em DTO.
+    return firstValueFrom(this.http.get(`${this.base}/${id}/foto`, { responseType: 'blob' }));
+  }
+
+  async enviarFoto(id: string, etag: string, arquivo: File): Promise<Recurso<FotoVeiculo>> {
+    const corpo = new FormData();
+    corpo.append('arquivo', arquivo, 'imagem');
+    const resposta = await firstValueFrom(this.http.put<{ foto: FotoVeiculo }>(`${this.base}/${id}/foto`, corpo,
+      { headers: { 'If-Match': etag }, observe: 'response' }));
+    const versao = resposta.headers.get('ETag');
+    if (!resposta.body?.foto || !versao) throw new Error('Resultado da foto não confirmado.');
+    return { dados: resposta.body.foto, etag: versao };
+  }
+
+  async removerFoto(id: string, etag: string): Promise<string> {
+    const resposta = await firstValueFrom(this.http.delete(`${this.base}/${id}/foto`,
+      { headers: { 'If-Match': etag }, observe: 'response' }));
+    const versao = resposta.headers.get('ETag');
+    if (!versao) throw new Error('Resultado da remoção não confirmado.');
+    return versao;
   }
 
   async excluir(id: string): Promise<void> {

@@ -47,8 +47,8 @@ describe('VeiculosService', () => {
     const pedido = http.expectOne(base);
     expect(pedido.request.method).toBe('POST');
     expect(pedido.request.body).toEqual(dados);
-    pedido.flush({ id: 'veiculo-a', ...dados }, { status: 201, statusText: 'Created' });
-    await salvar;
+    pedido.flush({ id: 'veiculo-a', ...dados }, { status: 201, statusText: 'Created', headers: { ETag: '"v1"' } });
+    expect((await salvar).etag).toBe('"v1"');
   });
 
   it('exige ETag na leitura e utiliza a versão recebida na edição', async () => {
@@ -60,8 +60,33 @@ describe('VeiculosService', () => {
     const pedido = http.expectOne(`${base}/veiculo-a`);
     expect(pedido.request.method).toBe('PUT');
     expect(pedido.request.headers.get('If-Match')).toBe('"v1"');
-    pedido.flush(veiculo);
+    pedido.flush(veiculo, { headers: { ETag: '"v2"' } });
     await salvar;
+  });
+
+  it('envia um único campo de arquivo sem definir Content-Type e conserva ETag de foto', async () => {
+    const arquivo = new File(['imagem'], 'pessoal.png', { type: 'image/png' });
+    const envio = api.enviarFoto('veiculo-a', '"v1"', arquivo);
+    const pedido = http.expectOne(`${base}/veiculo-a/foto`);
+    expect(pedido.request.method).toBe('PUT');
+    expect(pedido.request.headers.get('If-Match')).toBe('"v1"');
+    expect(pedido.request.headers.has('Content-Type')).toBe(false);
+    expect([...pedido.request.body.keys()]).toEqual(['arquivo']);
+    expect(pedido.request.body.get('arquivo').name).toBe('imagem');
+    const foto = { id: 'foto-a', caminho: '/api/v1/veiculos/veiculo-a/foto', mime: 'image/png', tamanhoBytes: 6, largura: 1, altura: 1 };
+    pedido.flush({ foto }, { headers: { ETag: '"v2"' } });
+    expect(await envio).toEqual({ dados: foto, etag: '"v2"' });
+    const leitura = api.lerFoto('veiculo-a');
+    const obter = http.expectOne(`${base}/veiculo-a/foto`);
+    expect(obter.request.responseType).toBe('blob');
+    obter.flush(new Blob(['foto'], { type: 'image/png' }));
+    expect((await leitura).type).toBe('image/png');
+    const remover = api.removerFoto('veiculo-a', '"v2"');
+    const exclusao = http.expectOne(`${base}/veiculo-a/foto`);
+    expect(exclusao.request.method).toBe('DELETE');
+    expect(exclusao.request.headers.get('If-Match')).toBe('"v2"');
+    exclusao.flush(null, { status: 204, statusText: 'No Content', headers: { ETag: '"v3"' } });
+    expect(await remover).toBe('"v3"');
   });
 
   it('obtém a versão antes de excluir e não chama rota de imagem', async () => {

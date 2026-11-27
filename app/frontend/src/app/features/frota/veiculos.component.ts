@@ -1,4 +1,4 @@
-import { Component, computed, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { form, FormField, FormRoot, maxLength, required, validate } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 import { ShellCadastralComponent } from '../../shared/shell-cadastral.component';
@@ -8,6 +8,7 @@ import { conterTabulacao, focarResumo } from '../../shared/foco';
 import { ResumoErroComponent } from '../../shared/resumo-erro.component';
 import { Grupo, Pagina, Recurso } from './grupos-planos.service';
 import { Combustivel, Veiculo, VeiculosService } from './veiculos.service';
+import { FotoVeiculoComponent } from './foto-veiculo.component';
 
 const vazio = () => ({
   placa: '', marca: '', cor: '', modelo: '', combustivel: 'Gasolina', capacidadeLitros: '', ano: '', grupoId: '',
@@ -15,16 +16,26 @@ const vazio = () => ({
 
 @Component({
   selector: 'app-veiculos',
-  imports: [RouterLink, ShellCadastralComponent, FormRoot, FormField, CampoTextoComponent, ResumoErroComponent],
+  imports: [RouterLink, ShellCadastralComponent, FormRoot, FormField, CampoTextoComponent, ResumoErroComponent, FotoVeiculoComponent],
   templateUrl: './veiculos.component.html',
 })
 export class VeiculosComponent implements OnInit {
   private readonly api = inject(VeiculosService);
   private readonly editor = viewChild<ElementRef<HTMLDialogElement>>('editor');
+  private readonly fotoEditor = viewChild(FotoVeiculoComponent);
+  protected readonly cadastroNovo = signal(true);
+  private readonly coordenando = signal(false);
+  private resultadoParcial = false;
   private atual: Recurso<Veiculo> | null = null;
+  protected readonly recurso = signal<Recurso<Veiculo> | null>(null);
+  protected readonly fotoOcupada = signal(false);
+  protected readonly fotoRestrita = signal(false);
+  protected readonly avisoCadastro = signal<string | null>(null);
+  protected readonly ocupado = computed(() => this.salvando() || this.fotoOcupada());
   private origem: HTMLElement | null = null;
   private abertura = 0;
   private consulta = 0;
+  private readonly focoFotoPendente = signal(false);
   private readonly modelo = signal(vazio());
   protected readonly pagina = signal<Pagina<Veiculo>>({ items: [], page: 1, pageSize: 20, total: 0 });
   protected readonly grupos = signal<Grupo[]>([]);
@@ -79,17 +90,34 @@ export class VeiculosComponent implements OnInit {
     submission: {
       onInvalid: () => this.mostrarErroEditor('Revise os campos indicados antes de salvar.'),
       action: async (campos) => {
-        if (!this.editorDisponivel()) return { kind: 'carregando', message: 'Aguarde os dados do cadastro.' };
+        if (!this.editorDisponivel() || this.coordenando() || this.fotoOcupada() || this.fotoRestrita()) return { kind: 'carregando', message: 'Aguarde os dados ou recarregue o cadastro.' };
+        this.coordenando.set(true);
         const modelo = this.modelo();
+        const foto = this.fotoEditor();
+        const enviarFoto = this.cadastroNovo() && !!foto?.temSelecao();
+        this.erroEditor.set(null);
+        this.avisoCadastro.set(null);
+        this.aviso.set(null);
         try {
           const [inteiro, fracao] = modelo.capacidadeLitros.replace(',', '.').split('.');
-          await this.api.salvar({
+          const atual = await this.api.salvar({
             ...modelo, combustivel: modelo.combustivel as Combustivel, ano: Number(modelo.ano),
             capacidadeLitros: BigInt(inteiro).toString() + (fracao === undefined ? '' : `.${fracao}`),
           }, this.atual);
-          this.editor()?.nativeElement.close();
-          this.aviso.set('Veículo salvo.');
+          this.atualizarRecurso(atual);
+          this.preencherCadastro(atual);
+          this.titulo.set('Editar veículo');
+          const fotoConfirmada = !enviarFoto || await foto!.concluirCadastro(atual);
+          this.cadastroNovo.set(false);
+          if (fotoConfirmada) {
+            this.avisoCadastro.set(enviarFoto ? 'Veículo e foto salvos.' : 'Veículo salvo. A foto é opcional.');
+            this.aviso.set(enviarFoto ? 'Veículo e foto salvos.' : 'Veículo salvo.');
+          } else {
+            this.resultadoParcial = true;
+            await this.mostrarErroEditor('Veículo salvo, mas o envio da foto não foi concluído ou confirmado. Revise o resultado da foto abaixo antes de continuar. Não é necessário cadastrar o veículo novamente.');
+          }
           await this.carregar(this.pagina().page);
+          if (fotoConfirmada) this.focoFotoPendente.set(true);
           return;
         } catch (erro) {
           const problema = problemaCadastro(erro);
@@ -98,11 +126,26 @@ export class VeiculosComponent implements OnInit {
           return erros.length ? erros.map(([nome, mensagens]) => ({
             kind: 'servidor', message: mensagens[0], fieldTree: campos[nome as keyof ReturnType<typeof vazio>] ?? campos,
           })) : { kind: 'servidor', message: problema.title! };
+        } finally {
+          this.coordenando.set(false);
         }
       },
     },
   });
-  protected readonly salvando = computed(() => this.formulario().submitting());
+  protected readonly salvando = computed(() => this.formulario().submitting() || this.coordenando());
+
+  constructor() {
+    effect(() => {
+      if (!this.focoFotoPendente() || this.salvando() || this.fotoOcupada()) return;
+      const abertura = this.abertura;
+      this.focoFotoPendente.set(false);
+      setTimeout(() => {
+        if (abertura !== this.abertura) return;
+        const botao = this.editor()?.nativeElement.querySelector<HTMLButtonElement>('#selecionar-foto');
+        if (botao && !botao.disabled) botao.focus();
+      });
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     await this.carregar();
@@ -142,6 +185,10 @@ export class VeiculosComponent implements OnInit {
   protected async abrir(veiculo?: Veiculo): Promise<void> {
     const abertura = ++this.abertura;
     this.atual = null;
+    this.recurso.set(null);
+    this.resultadoParcial = false;
+    this.cadastroNovo.set(!veiculo);
+    this.avisoCadastro.set(null);
     this.titulo.set(veiculo ? 'Editar veículo' : 'Novo veículo');
     this.erroEditor.set(null);
     this.editorDisponivel.set(false);
@@ -153,15 +200,14 @@ export class VeiculosComponent implements OnInit {
       if (veiculo) {
         const atual = await this.api.consultar(veiculo.id);
         if (abertura !== this.abertura) return;
-        this.atual = atual;
-        const { id: _id, ...dados } = atual.dados;
-        this.formulario().reset({ ...dados, ano: dados.ano.toString(), capacidadeLitros: dados.capacidadeLitros.replace('.', ',') });
+        this.atualizarRecurso(atual);
+        this.preencherCadastro(atual);
       }
       if (abertura !== this.abertura) return;
       this.carregandoEditor.set(false);
       this.editorDisponivel.set(true);
       await new Promise((resolve) => setTimeout(resolve));
-      if (abertura === this.abertura) this.editor()?.nativeElement.querySelector<HTMLInputElement>('input')?.focus();
+      if (abertura === this.abertura) this.editor()?.nativeElement.querySelector<HTMLInputElement>('#placa-veiculo')?.focus();
     } catch (erro) {
       if (abertura === this.abertura) await this.mostrarErroEditor(problemaCadastro(erro).title!);
     } finally {
@@ -185,15 +231,18 @@ export class VeiculosComponent implements OnInit {
   }
 
   protected fechar(): void {
-    if (!this.salvando()) this.editor()?.nativeElement.close();
+    if (!this.ocupado()) this.editor()?.nativeElement.close();
   }
 
   protected cancelar(evento: Event): void {
-    if (this.salvando()) evento.preventDefault();
+    if (this.ocupado()) evento.preventDefault();
   }
 
   protected fechado(): void {
     this.abertura++;
+    this.editorDisponivel.set(false);
+    this.atual = null;
+    this.recurso.set(null);
     if (this.origem?.isConnected) this.origem.focus();
     else document.getElementById('novo-veiculo')?.focus();
   }
@@ -205,6 +254,32 @@ export class VeiculosComponent implements OnInit {
 
   protected invalido(campo: 'grupoId' | 'combustivel'): boolean {
     return this.formulario[campo]().invalid() && this.formulario[campo]().touched();
+  }
+
+  protected atualizarRecurso(atual: Recurso<Veiculo>): void {
+    this.atual = atual;
+    this.recurso.set(atual);
+  }
+
+  protected atualizarFoto(atual: Recurso<Veiculo>): void {
+    this.atualizarRecurso(atual);
+    if (this.resultadoParcial) {
+      this.resultadoParcial = false;
+      this.erroEditor.set(null);
+    }
+  }
+
+  protected preencherCadastro(atual: Recurso<Veiculo>): void {
+    const dados = atual.dados;
+    this.formulario().reset({
+      placa: dados.placa, marca: dados.marca, cor: dados.cor, modelo: dados.modelo,
+      combustivel: dados.combustivel, grupoId: dados.grupoId, ano: dados.ano.toString(),
+      capacidadeLitros: dados.capacidadeLitros.replace('.', ','),
+    });
+  }
+
+  protected descartarCadastro(): void {
+    if (this.atual && !this.ocupado()) this.preencherCadastro(this.atual);
   }
 
   private async mostrarErroEditor(mensagem: string): Promise<void> {

@@ -20,7 +20,7 @@ describe('Isolamento de sessão no frontend', () => {
   afterEach(() => http.verify());
 
   it.each([
-    `${URL_API}/api/v1/clientes`, `${URL_API}/api/v1/configuracoes/seguros/Cliente`,
+    `${URL_API}/api/v1/clientes`, `${URL_API}/api/v1/configuracoes/seguros/Cliente`, `${URL_API}/api/v1/veiculos/veiculo-a/foto`,
   ])('anexa bearer ao recurso da API %s', (url) => {
     TestBed.inject(HttpClient).get(url).subscribe();
     const pedido = http.expectOne(url);
