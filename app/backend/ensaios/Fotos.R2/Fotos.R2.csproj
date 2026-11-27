@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../tests/Locadora.IntegrationTests/Locadora.IntegrationTests.csproj" />
+  </ItemGroup>
+  <Target Name="CopiarDepsDaApi" AfterTargets="Build">
+    <Copy SourceFiles="../../src/Locadora.Api/bin/$(Configuration)/$(TargetFramework)/Locadora.Api.deps.json"
+          DestinationFolder="$(OutDir)" />
+  </Target>
+</Project>

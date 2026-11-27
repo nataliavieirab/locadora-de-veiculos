@@ -4,7 +4,9 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 export const api = 'http://127.0.0.1:5285/api/v1';
 export const senha = 'abcdefgh';
 
-export async function prepararDevolucao(request: APIRequestContext) {
+export async function prepararDevolucao(request: APIRequestContext, antesContratar?: (dados: {
+  headers: Record<string, string>; veiculo: { id: string; grupoId: string }; sessao: { accessToken: string };
+}) => Promise<void>) {
   const usuario = `f4${Date.now().toString(36)}${randomUUID().slice(0, 5)}`;
   expect((await request.post(`${api}/registro`, { data: { username: usuario, email: `${usuario}@example.invalid`, password: senha } })).status()).toBe(201);
   const login = await request.post(`${api}/session/login`, { data: { username: usuario, password: senha } });
@@ -35,6 +37,7 @@ export async function prepararDevolucao(request: APIRequestContext) {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(retorno).replace(' ', 'T');
   const comando = { clienteId: cliente.id, condutorId: condutor.id, veiculoId: veiculo.id, planoId: plano.id,
     retornoPrevisto: `${retornoLocal}:00-03:00`, hodometroInicial: 18420, taxasServicoIds: [fixa.id], seguros: ['Cliente', 'Terceiros'] };
+  await antesContratar?.({ headers, veiculo, sessao });
   const resposta = await request.post(`${api}/alugueis`, { headers: { ...headers, 'Idempotency-Key': randomUUID() }, data: comando });
   expect(resposta.status()).toBe(201);
   const contrato = await resposta.json();

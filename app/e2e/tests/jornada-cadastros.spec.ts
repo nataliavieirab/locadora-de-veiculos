@@ -93,13 +93,19 @@ async function prepararEmpresa(page: Page, usuario: string, letra: string): Prom
   await navegar(page, 'Veículos');
   await expect(page.getByRole('heading', { name: 'Nenhum veículo para exibir' })).toBeVisible();
   await page.getByRole('button', { name: '＋ Novo veículo', exact: true }).click();
-  expect(await page.getByRole('dialog').locator('input[type=file]').count()).toBe(0);
+  await expect(page.getByRole('dialog').locator('input[type=file]')).toHaveCount(1);
+  await expect(page.getByRole('dialog')).toContainText('Se selecionada, será enviada ao clicar em Salvar veículo');
+  const enviosFoto: string[] = [];
+  page.on('request', requisicao => {
+    if (requisicao.method() === 'PUT' && requisicao.url().endsWith('/foto')) enviosFoto.push(requisicao.url());
+  });
   await preencher(page, {
     'placa-veiculo': 'ABC-1D23', 'marca-veiculo': 'Marca sintética', 'modelo-veiculo': `Modelo ${letra}`,
     'cor-veiculo': 'Azul', 'ano-veiculo': '2026', 'capacidade-veiculo': '48,125',
   });
   await page.locator('#grupo-veiculo').selectOption({ label: `Grupo ${letra}` });
   await salvar(page, 'Salvar veículo');
+  expect(enviosFoto).toHaveLength(0);
   await navegar(page, 'Preços e serviços');
   await expect(page.getByRole('heading', { name: 'Nenhuma taxa ou serviço cadastrado' })).toBeVisible();
   await page.getByRole('button', { name: '＋ Nova taxa ou serviço', exact: true }).click();
@@ -131,5 +137,9 @@ async function preencher(page: Page, dados: Record<string, string>): Promise<voi
 
 async function salvar(page: Page, nome: string): Promise<void> {
   await page.getByRole('dialog').getByRole('button', { name: nome, exact: true }).click();
+  if (nome === 'Salvar veículo') {
+    await expect(page.getByRole('dialog')).toContainText('Veículo salvo. A foto é opcional');
+    await page.getByRole('dialog').getByRole('button', { name: 'Fechar', exact: true }).click();
+  }
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
