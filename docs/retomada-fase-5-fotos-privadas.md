@@ -1,5 +1,14 @@
 # Retomada — `fase-5-fotos-privadas`
 
+## Sync e Archive pré-merge — 27/11/2026
+
+- **Escopo autorizado:** sincronizar e arquivar a mudança, com novo commit na mesma PR #6 (`feat/fase-5-fotos-privadas` → `main`), sem merge. Confirmação explícita via `question`; não é novo bloco de Apply.
+- **Pré-condições:** working tree limpo, HEAD local igual ao remoto, OpenSpec 1.16.1 funcional com raiz local e schema `prototype-first`; todos os artefatos completos e **36/36** tarefas.
+- **Sync:** `openspec/specs/cadastros/veiculos/spec.md` atualizado somente em F2-VE-05, preservando os demais requisitos, título e Purpose; criada `openspec/specs/frota/fotos-privadas/spec.md` com F5-FT-01–10 e Purpose integral do delta. Comparação de todos os blocos sincronizados confirmou correspondência e preservação do conteúdo não afetado.
+- **Archive:** oito arquivos movidos integralmente, inclusive `.openspec.yaml`, para `openspec/changes/archive/2026-11-27-fase-5-fotos-privadas/`; comparação SHA-256 antes/depois aprovada. Caminhos antigos nas seções históricas abaixo e no TDD documentam a localização da época; a localização vigente é o arquivo aqui indicado.
+- **Verificações:** `openspec validate --specs --strict --no-interactive` aprovado, **12/12**; validação estrita da mudança aprovada antes do arquivamento; `openspec list --json` confirmou ausência de mudanças ativas; `git diff --check` aprovado; `TMPDIR=/tmp/opencode scripts/verificar.sh --segredos` aprovado, logs `.tmp/verificacao/20261127-124248-68071/`.
+- **Limites:** somente especificações e documentação; sem alterações de runtime, build/testes da aplicação nesta etapa, nova operação SQL/R2, homologação, publicação ou merge. Um script auxiliar de comparação falhou inicialmente por regex incorreta; corrigido e reexecutado com sucesso antes do Archive, sem alteração dos contratos.
+
 ## Preparação da entrega Git — 27/11/2026
 
 - **Escopo:** solicitação explícita de revisar, organizar commits e abrir PR Ready for review de `feat/fase-5-fotos-privadas` para `main`. Não é novo bloco de Apply, Sync/Archive, F6, merge ou publicação. Modelo `openai/gpt-6.1-sol`, variante não exposta.
