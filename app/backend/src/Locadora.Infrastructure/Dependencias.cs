@@ -4,6 +4,8 @@ using Locadora.Application.Modulos.Transversal;
 using Locadora.Application.Modulos.Pessoas;
 using Locadora.Application.Modulos.FrotaPrecos;
 using Locadora.Application.Modulos.Locacoes;
+using Locadora.Application.Modulos.Fotos;
+using Locadora.Infrastructure.Modulos.Fotos;
 using Locadora.Domain.Modulos.Acesso;
 using Locadora.Infrastructure.Modulos.Acesso.Registro;
 using Locadora.Infrastructure.Modulos.Acesso.Sessao;
@@ -40,6 +42,9 @@ public static class Dependencias
         services.AddScoped<IRepositorioVeiculos, RepositorioVeiculos>();
         services.AddScoped<IVinculosAluguelVeiculo, VinculosAluguelVeiculo>();
         services.AddScoped<CasosVeiculos>();
+        services.AddScoped<IInativacaoFotoVeiculo, InativacaoFotoVeiculo>();
+        services.AddSingleton<IRetomadaFotos, RetomadaFotos>();
+        services.AddHostedService<RetomadaFotosStartup>();
         services.AddScoped<IRepositorioPrecosSeguros, RepositorioPrecosSeguros>();
         services.AddScoped<CasosPrecosSeguros>();
         services.AddScoped<IRepositorioPrecosCombustiveis, RepositorioPrecosCombustiveis>();

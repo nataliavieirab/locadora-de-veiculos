@@ -20,7 +20,7 @@ internal sealed class CenarioLocacoesSql : IAsyncDisposable
     internal CenarioLocacoesSql(ContextoEmpresa contexto, LocadoraDbContext banco, DadosContratacao dados)
         => (Contexto, Banco, Dados) = (contexto, banco, dados);
 
-    public static async Task<CenarioLocacoesSql> CriarAsync(string? conexao = null)
+    public static async Task<CenarioLocacoesSql> CriarAsync(string? conexao = null, bool schemaFase2 = false)
     {
         var empresa = Empresa.Nova();
         var nome = "locacao_" + Guid.NewGuid().ToString("N");
@@ -46,9 +46,19 @@ internal sealed class CenarioLocacoesSql : IAsyncDisposable
             PrecoSeguro.Novo(empresa.Id, TipoSeguro.Cliente, 5, Agora),
             PrecoSeguro.Novo(empresa.Id, TipoSeguro.Terceiros, 7, Agora),
         };
-        banco.AddRange(empresa, conta, cliente, condutor, grupo, veiculo, plano, taxa);
+        banco.AddRange(empresa, conta, cliente, condutor, grupo, plano, taxa);
+        if (!schemaFase2) banco.Add(veiculo);
         banco.AddRange(seguros);
         await banco.SaveChangesAsync();
+        if (schemaFase2)
+        {
+            // O modelo atual tem colunas F5 inexistentes na F2. Preparar o
+            // registro histórico só com colunas F2, sem antecipar a migration.
+            await banco.Database.ExecuteSqlInterpolatedAsync(
+                $"INSERT INTO Veiculos (Id, EmpresaId, Placa, PlacaNormalizada, Marca, Cor, Modelo, Combustivel, CapacidadeLitros, Ano, GrupoId, CriadoEmUtc, AlteradoEmUtc) VALUES ({veiculo.Id}, {empresa.Id}, {veiculo.Placa}, {veiculo.PlacaNormalizada}, {veiculo.Marca}, {veiculo.Cor}, {veiculo.Modelo}, {(int)veiculo.Combustivel}, {veiculo.CapacidadeLitros}, {veiculo.Ano}, {grupo.Id}, {Agora}, {Agora})");
+            var versao = await banco.Database.SqlQuery<byte[]>($"SELECT RowVersion AS [Value] FROM Veiculos WHERE Id={veiculo.Id}").SingleAsync();
+            banco.Entry(veiculo).Property(v => v.RowVersion).CurrentValue = versao;
+        }
         contexto.PermiteCriarEmpresa = false;
         return new(contexto, banco, new(cliente, condutor, veiculo, grupo, plano, Agora.AddDays(2), 1000, [taxa], seguros));
     }

@@ -1,12 +1,13 @@
 using Locadora.Application.Modulos.Transversal;
 using Locadora.Domain.Modulos.FrotaPrecos;
 using Locadora.Domain.Modulos.Transversal;
+using Locadora.Application.Modulos.Fotos;
 
 namespace Locadora.Application.Modulos.FrotaPrecos;
 
 public sealed class CasosVeiculos(IRepositorioVeiculos repositorio, IRepositorioGruposPlanos grupos,
     IUnidadeTrabalhoEmpresa unidade, IAuditoriaCadastro auditoria, IContextoCadastro contexto,
-    IVinculosAluguelVeiculo alugueis, TimeProvider tempo)
+    IVinculosAluguelVeiculo alugueis, TimeProvider tempo, IInativacaoFotoVeiculo? fotos = null)
 {
     public Task<Pagina<Veiculo>> ListarAsync(Paginacao paginacao, Guid? grupoId, CancellationToken cancelamento) =>
         repositorio.ListarAsync(paginacao, grupoId, cancelamento);
@@ -58,6 +59,11 @@ public sealed class CasosVeiculos(IRepositorioVeiculos repositorio, IRepositorio
             var veiculo = await ConsultarAsync(id, token);
             VersaoCadastro.Exigir(versao, veiculo.RowVersion);
             await ExigirSemAluguelAsync(id, token);
+            if (veiculo.FotoAtivaId is not null)
+            {
+                if (fotos is null) throw new InvalidOperationException("Inativação de foto indisponível.");
+                await fotos.RetirarAsync(veiculo, tempo.GetUtcNow(), token);
+            }
             veiculo.Excluir(tempo.GetUtcNow());
             auditoria.Registrar(AcaoCadastro.Exclusao, TipoCadastro.Veiculo, id, "excluidoEmUtc");
             return true;

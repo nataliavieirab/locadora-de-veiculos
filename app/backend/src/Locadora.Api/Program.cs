@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using Locadora.Api.Host;
 using Locadora.Api.Modulos.Acesso.Sessao;
+using Locadora.Api.Modulos.Fotos;
 using Locadora.Application.Modulos.Transversal;
 using Locadora.Infrastructure;
 using Locadora.Infrastructure.Modulos.Acesso.Sessao;
@@ -19,7 +20,8 @@ builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogL
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddLocadora(configuracao);
-builder.Services.AddOpenApi();
+builder.Services.AddFotosPrivadas(builder.Configuration, builder.Environment);
+builder.Services.AddOpenApi(opcoes => opcoes.AddOperationTransformer<ContratoOpenApiFotos>());
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opcoes =>
     {
@@ -32,13 +34,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnChallenge = contexto =>
             {
-                if (!contexto.Request.Path.StartsWithSegments("/api/v1/alugueis"))
+                if (!contexto.Request.Path.StartsWithSegments("/api/v1/alugueis")
+                    && !contexto.Request.Path.StartsWithSegments("/api/v1/veiculos"))
                     return Task.CompletedTask;
                 contexto.HandleResponse();
                 contexto.Response.Headers.WWWAuthenticate = "Bearer";
                 return ResponderAcessoLocacoes(contexto.HttpContext, 401, "Sessão inválida", "sessao_invalida");
             },
-            OnForbidden = contexto => contexto.Request.Path.StartsWithSegments("/api/v1/alugueis")
+            OnForbidden = contexto => (contexto.Request.Path.StartsWithSegments("/api/v1/alugueis")
+                || contexto.Request.Path.StartsWithSegments("/api/v1/veiculos"))
                 ? ResponderAcessoLocacoes(contexto.HttpContext, 403, "Acesso negado", "acesso_negado")
                 : Task.CompletedTask,
         };
