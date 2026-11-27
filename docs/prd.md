@@ -5,6 +5,8 @@
 - **Origem:** pedido do usuário e decisões esclarecidas em entrevista via ferramenta `question`.
 - **Natureza da entrega:** documentação preparatória, sem implementação. Por orientação explícita do usuário, esta preparação ocorre fora do fluxo de branches do `AGENTS.md`; a pasta não possui repositório Git. Não foram criados commits ou PR.
 
+**Revisão de produto — 25/11/2026:** política exclusiva de fotos dos veículos aprovada pelo solicitante e revisão deste PRD confirmada via `question`. O contexto acima descreve a preparação original; esta revisão ocorre na branch `feat/fase-5-fotos-privadas`, preservando o trabalho existente. Aprovação documental não comprova implementação ou testes da política.
+
 ## 1. Resumo executivo
 
 Disponibilizar um sistema web administrativo para cadastrar a frota, clientes e condutores, configurar cobranças, registrar locações e concluir devoluções com cálculo discriminado. A v1 deve reduzir inconsistências operacionais e tornar verificáveis disponibilidade, documentação e valores cobrados.
@@ -26,6 +28,7 @@ A entrevista com o solicitante esclareceu as regras de cálculo e operação. N�
 | Datas | Data/hora, períodos iniciados de 24 horas e multa única sobre o subtotal do plano, conforme RN-01 e RN-08. |
 | Caução | Garantia de R$ 1.000 separada do custo, não parcela de receita nem entrada abatida, conforme RN-09. |
 | Condutores | Cadastro e edição com preservação de dados durante aluguel aberto, conforme RF-09. |
+| Fotos removidas | Inacessibilidade imediata pela API; retenção privada mínima de 30 dias corridos desde a remoção/substituição, nunca desde a ativação; exclusão física posterior apenas oportunista e segura, conforme RF-06/19. |
 
 ## 3. Objetivos e métricas de sucesso
 
@@ -110,6 +113,7 @@ Consulta listas e histórico. Aluguel concluído não pode ser editado; pode ser
 ### 7.3 Frota
 
 - **RF-06 — Gerir veículos:** inserir/editar placa, marca, cor, modelo, combustível, capacidade em litros, ano e grupo; permitir uma foto opcional. Placa única por empresa, capacidade positiva. Bloquear edição e exclusão quando houver aluguel aberto.
+  A remoção ou substituição de foto torna a referência anterior imediatamente inacessível pela API após confirmação da operação. Seu objeto permanece privado por no mínimo 30 dias corridos desde o instante UTC da remoção lógica ou substituição, registrado de forma imutável para essa operação; a ativação original não inicia esse prazo. Enquanto ativa, a foto nunca se torna elegível por idade. A exclusão lógica do veículo retira a foto ativa pelo mesmo tratamento.
 - **RF-07 — Consultar frota:** listar ID, placa, marca, cor, modelo e combustível; permitir filtrar e agrupar por grupo. Veículo com aluguel aberto não está disponível para nova contratação; conclusão o torna disponível.
 
 ### 7.4 Clientes e condutores
@@ -132,6 +136,7 @@ Consulta listas e histórico. Aluguel concluído não pode ser editado; pode ser
 - **RF-17 — Registrar devolução:** registrar data/hora real, hodômetro final e litros restantes; permitir incluir taxas adicionais. Hodômetro final não pode ser menor que inicial; km são inteiros; litros devem estar entre zero e capacidade; devolução não pode preceder saída. Calcular total, concluir e liberar veículo de forma consistente. Concluído não admite edição nem nova devolução.
 - **RF-18 — Calcular cobrança:** implementar as regras RN-01 a RN-09 e demonstrar seus componentes. Valores de entrada não negativos; capacidade positiva e retorno previsto posterior à saída.
 - **RF-19 — Excluir preservando histórico:** exclusões são lógicas, retirando registros das novas operações sem apagar contratos e demonstrativos. Bloquear exclusão de aluguel aberto; permitir ocultar concluído da operação. Preservar os bloqueios específicos de RF-04 a RF-11 e as referências históricas, inclusive preços e informações exibidas à época.
+  Exclusivamente para os bytes de fotos de veículos anteriormente ativas, transcorrida a retenção mínima de RF-06, permitir exclusão física oportunista, nunca de objeto ativo ou necessário a referência histórica. Preservar catálogo e rastreabilidade da operação. Upload concluído no armazenamento que nunca foi ativado admite compensação física sem esperar 30 dias, após confirmação segura de término do envio e respeitando concorrência e resultado incerto. Essa exceção não se estende a contratos, dados pessoais, auditoria ou outros registros.
 
 ### 7.7 Regras de negócio da cobrança
 
@@ -152,8 +157,10 @@ Considere `D` diárias, `K` km rodados e `B` subtotal do plano:
 - **RNF-01 — Segurança de acesso:** proteger operações e fotos por autenticação e autorização da empresa; não expor senhas nem armazená-las de modo recuperável. Verificar negação de acesso sem sessão e entre empresas.
 - **RNF-02 — Privacidade:** restringir CPF/CNPJ, RG, CNH, contatos e endereços ao contexto administrativo da empresa; não registrar senhas ou documentos completos em mensagens de erro e registros técnicos. Não se presume prazo legal de retenção ou conformidade certificada.
 - **RNF-03 — Consistência:** criar aluguel e ocupar veículo como uma única operação de negócio; concluir e liberar veículo sem estado parcial. Repetições e concorrência não podem gerar dois aluguéis abertos ou duplicação de devolução.
+  Remoção/substituição de foto e seu agendamento durável devem ser consistentes; exclusões físicas e compensações respeitam concorrência, posse do trabalho e resultado incerto. Falha deixa tarefa pendente com novas tentativas, sem perda do trabalho. Após os 30 dias há elegibilidade, não garantia de processamento pontual: indisponibilidade da aplicação ou do banco pode adiá-lo.
 - **RNF-04 — Usabilidade e acessibilidade:** interface em português, moeda BRL, campos com rótulos, operação principal por teclado, foco perceptível, erros associados aos campos e estados vazios compreensíveis; não depender apenas de cor para indicar erro/estado.
 - **RNF-05 — Rastreabilidade:** registrar empresa, conta administrativa, momento e tipo de alteração crítica em preços, contratação, edição, devolução e exclusão lógica, sem inserir dados pessoais desnecessários. Mecanismo e retenção serão definidos no TDD e na preparação operacional.
+  No ciclo de exclusão física/compensação das fotos, registrar tentativas e falhas de forma durável e sem segredos; falhas não encerram silenciosamente as novas tentativas. Isso não define prazo de retenção da auditoria.
 - **RNF-06 — Desempenho e disponibilidade:** metas quantitativas, volume de dados, concorrência esperada e disponibilidade a definir com contexto de uso. O TDD deve explicitar hipóteses e plano de medição, sem apresentar números arbitrários como compromissos aprovados.
 - **RNF-07 — Integridade histórica e cálculo:** manter contratos concluídos verificáveis após alterações/exclusões cadastrais; demonstrativos devem permitir recompor totais com os valores usados no fechamento, respeitando RN-01 a RN-09.
 
@@ -175,6 +182,11 @@ Considere `D` diárias, `K` km rodados e `B` subtotal do plano:
 | CA-12 | RF-05; RF-11–13; RNF-07 | Alterar plano/seguro ou excluir cadastro após conclusão não altera demonstrativo; mudança do preço de combustível antes do retorno usa o preço vigente nesse retorno e depois preserva-o; taxa diária adicional inserida na devolução usa todas as diárias efetivas. |
 
 Os cenários são critérios futuros de aceitação, não testes executados nem evidência de produto implementado.
+
+Complementos aprovados em 25/11/2026, preservando os IDs:
+- **CA-03 / RF-06:** remoção, substituição e exclusão lógica do veículo retiram imediatamente o acesso à foto anterior pela API; com relógio controlado, antes de 30 dias desde a remoção não há exclusão física e no limite exato há elegibilidade. Foto ativa há mais de 30 dias continua protegida; ativação não antecipa o prazo. Não aguardar 30 dias reais no teste.
+- **CA-10 / RF-19; RNF-03/05/07:** testar compensação de nunca ativo sem retenção, resultado incerto, concorrência, repetição, reinício e falhas de DELETE com novas tentativas pendentes; indisponibilidade adia a execução oportunista. Nunca apagar ativo ou objeto necessário a referência histórica, nem perder catálogo, contratos ou demonstrativos.
+- **CA-12 / RNF-07:** após exclusão elegível de bytes de foto sem dependência histórica, contratos/demonstrativos continuam idênticos. A política de fotos não altera retenção de dados pessoais, auditoria ou outros registros.
 
 ## 10. Dados e integrações
 
@@ -203,7 +215,8 @@ Não há integrações externas na v1. Consulta de documentos é validação dos
 | Documentação declarada | Sem consulta externa, não se confirma autenticidade ou situação oficial; comunicar esse limite. |
 | Gás e unidade de combustível | A v1 mantém a fórmula aprovada em litros; adequação a veículos a gás precisa de validação de domínio antes de uso real com esse combustível. Não presumir conversão para m³. |
 | Conta única e recuperação | Perda de credencial pode bloquear a empresa; definir procedimento operacional seguro antes de produção ou revisar escopo com autorização. |
-| Exclusão lógica e dados pessoais | Preservação de histórico não equivale a autorização de retenção indefinida; validar prazos, bases e procedimento de atendimento a solicitações antes de produção. |
+| Exclusão lógica e dados pessoais | Preservação de histórico não equivale a autorização de retenção indefinida; validar prazos, bases e procedimento de atendimento a solicitações antes de produção. A política exclusiva de fotos RF-06/19 não resolve essas retenções. |
+| Retenção de fotos e aplicação suspensa | Os 30 dias são prazo mínimo desde remoção/substituição, não promessa de execução pontual. Proteger ativos/histórico, manter pendência e novas tentativas em falha; validar sem aguardar o prazo real. |
 | Preço de combustível no retorno | Total pode diferir da estimativa; deixar a regra clara na contratação e preservar preço final aplicado. |
 | Ausência de reserva/cancelamento | Veículo permanece ocupado até devolução; registrar somente contratos iniciados e orientar operação para evitar cadastros indevidos. |
 | Metas operacionais ausentes | Não prometer capacidade, disponibilidade ou recuperação; definir contexto e metas antes de compromisso de produção. |
@@ -219,7 +232,7 @@ Premissas confirmadas: português, BRL, fuso America/Sao_Paulo e administração
 | Pendência | Classificação | Validação / responsável sugerido |
 | --- | --- | --- |
 | Baseline de operação e metas de desempenho/disponibilidade | Não bloqueante para iniciar desenho técnico; necessária para compromissos operacionais | Produto e representante da locadora a identificar; medir contexto e volume de uso. |
-| Retenção de dados e registros, recuperação de conta e procedimentos operacionais | Não bloqueante para desenho inicial; resolver antes de produção | Produto, segurança e operação a designar; validar políticas sem inventar obrigação legal. |
+| Retenção de dados e registros, recuperação de conta e procedimentos operacionais | Não bloqueante para desenho inicial; resolver antes de produção | Produto, segurança e operação a designar; validar políticas sem inventar obrigação legal. Retenção de fotos removidas foi definida exclusivamente em RF-06/19; não estender aos demais registros. |
 | Adequação de litros para gás | Não bloqueante para TDD; impeditiva de uso real com gás sem confirmação | Especialista de domínio a identificar; validar unidade ou autorizar revisão da regra. |
 | Limites de fotos e detalhes de validação técnica | Decisão técnica no TDD | Engenharia, com validação de impacto de produto se houver restrição funcional. |
 

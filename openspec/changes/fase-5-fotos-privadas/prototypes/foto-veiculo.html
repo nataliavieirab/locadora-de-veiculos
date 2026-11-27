@@ -1,0 +1,319 @@
+<!doctype html>
+<!--
+Source: proposal.md (What Changes); specs/frota/fotos-privadas/spec.md;
+specs/cadastros/veiculos/spec.md.
+Style: project design tokens, plain inline CSS; no styling library/runtime.
+Reference: app/frontend/src/styles.css; shared/shell-cadastral.component.ts;
+features/frota/veiculos.component.html. System font, stone palette, blue-900,
+232px sidebar, 576px editor, 8/12px radii. No external assets.
+Covered:
+ F5-FT-01 / Scenario: Adicionar foto ao veículo salvo -> selection, preview, discard.
+ F5-FT-01 / Scenario: Confirmar envio -> busy state, explicit send, confirmed success.
+ F5-FT-01 / Scenario: Substituir foto -> pending preview, active-reference notice.
+ F5-FT-01 / Scenario: Remover referência ativa -> remove, empty and success.
+ F5-FT-01 / Scenario: Alterações cadastrais ainda não salvas -> dirty gate, save/discard.
+ F5-FT-02 / Scenario: Rejeitar imagem inválida -> linked error and focused summary.
+ F5-FT-02 / Scenario: Sanear imagem aceita -> fictional oriented image; actual sanitation not simulated.
+ F5-FT-03 / Scenario: Sessão expirada ou encerrada -> permission message, no image.
+ F5-FT-04 / Scenario: Consultar foto ativa -> loading, image and text alternative.
+ F5-FT-04 / Scenario: Encerrar visualização -> clear preview on close; focus restoration.
+ F5-FT-05 / Scenario: Versão ausente ou divergente -> reload gate.
+ F5-FT-05 / Scenario: Aluguel aberto -> readable image, disabled mutations and explanation.
+ F5-FT-05 / Scenario: Veículo alugado ou alterado durante envio -> conflict after send.
+ F5-FT-06 / Scenario: Armazenamento falha na troca -> previous image, retry, independent data.
+ F5-FT-06 / Scenario: Resposta perdida -> unknown result, reconcile before new mutation.
+ F5-FT-07 / Scenario: Leitura de imagem indisponível -> placeholder and retry.
+ F5-FT-08 / Scenario: Processador ocupado -> temporary error and manual retry.
+ F5-FT-08 / Scenario: Limite de tempo ou memória -> processing failure.
+ F5-FT-09 / Scenario: Fluxo por teclado -> dialog, labels, live region, error focus.
+ F2-VE-05 / Scenario: Criar veículo na Fase 5 -> existing fields, optional-photo hint.
+  F2-VE-05 / Scenario: Salvar criação com foto em uma ação -> coordinated save, partial result.
+ F2-VE-05 / Scenario: Foto independente do cadastro -> separate notices.
+Not specified (presentational only):
+ Existing shell, navigation, fleet table, filters and unrelated actions are inert.
+ Existing cadastral fields are reused chrome, not redesigned validation.
+ Yellow review controls select synthetic scenarios, not a product feature.
+ Synthetic vector illustration stands in for a photo; selection is simulated,
+ never opens a personal file. Security, bytes, storage, sanitation, audit and
+ recovery require real tests during Apply; no claims of implementing them here.
+Open questions: none.
+100% fictional data; no network, backend, browser storage or file access.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:,">
+  <title>Protótipo F5 — Foto do veículo</title>
+  <style>
+    :root { color-scheme: light; --ink:#1c1917; --muted:#57534e; --line:#d6d3d1; --paper:#fff; --soft:#f5f5f4; --blue:#1e3a8a; font:14px/1.5 system-ui,sans-serif; }
+    * { box-sizing:border-box }
+    body { margin:0; background:var(--soft); color:var(--ink) }
+    button,input,select { font:inherit }
+    button { cursor:pointer }
+    button:disabled { cursor:not-allowed; opacity:.55 }
+    :focus-visible { outline:2px solid var(--blue); outline-offset:3px }
+    [hidden] { display:none!important }
+    .skip { position:fixed; left:-9999px; z-index:10; background:white; padding:12px }
+    .skip:focus { left:8px; top:8px }
+    .shell { display:grid; grid-template-columns:232px minmax(0,1fr); min-height:100vh }
+    aside { background:#1c1917; color:#fafaf9; padding:26px 16px; display:flex; flex-direction:column; gap:32px }
+    .brand { display:flex; align-items:center; gap:12px; padding:0 8px }
+    .brand b { display:grid; place-items:center; width:36px; height:36px; background:#fafaf9; color:var(--ink); border-radius:8px }
+    .brand strong { display:block; font-size:16px }.brand small { color:#a8a29e }
+    aside nav { display:grid; gap:8px } aside nav span { padding:12px; border-radius:8px; text-decoration:underline; font-weight:500 }
+    aside nav .active { background:#44403c } aside p { margin-top:auto; border-top:1px solid #44403c; padding:16px 8px 0; color:#d6d3d1; font-size:13px }
+    .top { height:72px; border-bottom:1px solid var(--line); background:white; padding:0 40px; display:flex; justify-content:flex-end; align-items:center; color:var(--blue); text-decoration:underline; font-weight:600 }
+    main { max-width:1280px; margin:auto; padding:36px 40px }
+    .heading { display:flex; align-items:end; justify-content:space-between; gap:20px; margin-bottom:28px }
+    .eyebrow { margin:0; color:var(--blue); font-size:11px; letter-spacing:.13em; font-weight:750; text-transform:uppercase }
+    h1 { margin:7px 0; font-size:30px; letter-spacing:-.035em } p { margin:0 } .muted { color:var(--muted) }
+    button { border:1px solid #a8a29e; border-radius:8px; background:white; color:var(--ink); padding:10px 15px; font-weight:650 }
+    .primary { background:var(--blue); border-color:var(--blue); color:white }
+    .filter { display:flex; gap:24px; align-items:center; padding:16px; background:white; border:1px solid var(--line); border-radius:12px }
+    label { display:block; font-weight:650; font-size:13px }
+    input,select { width:100%; border:1px solid #a8a29e; border-radius:8px; padding:9px 11px; background:white; color:var(--ink) }
+    .count { margin:20px 0 14px; font-size:13px; color:var(--muted) }
+    .table { overflow:auto; border:1px solid var(--line); border-radius:12px; background:white }
+    table { width:100%; border-collapse:collapse; text-align:left; white-space:nowrap }
+    th { background:#fafaf9; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted) }
+    td,th { padding:17px 15px; border-bottom:1px solid #e7e5e4 } td { font-size:13px }
+    .plate { font:700 13px ui-monospace,monospace; border:1px solid #a8a29e; background:#fafaf9; padding:4px 8px; border-radius:4px; white-space:nowrap }
+    .link { border:0; padding:2px; color:var(--blue); text-decoration:underline; background:none }
+    .review-note { margin-top:28px; border-top:1px solid var(--line); padding-top:18px; font-size:12px; color:var(--muted) }
+    dialog { position:fixed; inset:0 0 0 auto; margin:0; padding:0; border:0; border-left:1px solid var(--line); width:min(576px,100%); height:100dvh; max-height:none; max-width:100%; background:white; color:var(--ink); box-shadow:-20px 0 70px #1c19171a }
+    dialog::backdrop { background:rgb(28 25 23 / .4) }
+    .editor { display:flex; flex-direction:column; height:100% }
+    .editor-header { display:flex; align-items:start; justify-content:space-between; gap:16px; padding:20px 24px; border-bottom:1px solid var(--line) }
+    h2 { font-size:21px; line-height:1.3; margin:7px 0 0; letter-spacing:-.025em }
+    .close { padding:8px 12px }.scroll { flex:1; overflow-y:auto; min-height:0; padding:20px 24px 28px }
+    .review { background:#fffbeb; border:1px dashed #b45309; color:#78350f; border-radius:8px; padding:10px 12px; margin-bottom:20px }
+    .review label { font-size:11px; letter-spacing:.04em; text-transform:uppercase }.review select { margin:6px 0; font-size:12px; padding:6px 8px; border-color:#b45309 }
+    .review p { font-size:11px }.section-heading { display:flex; gap:12px; justify-content:space-between; align-items:center; margin-bottom:12px }
+    h3 { margin:0; font-size:15px; letter-spacing:-.01em }.badge { font-size:11px; padding:3px 9px; background:var(--soft); color:#44403c; border:1px solid #e7e5e4; border-radius:99px; font-weight:650 }
+    .photo-card { border:1px solid var(--line); border-radius:12px; overflow:hidden }
+    .image-area { height:192px; background:#f5f5f4; position:relative; display:flex; justify-content:center; align-items:center; overflow:hidden }
+    .illustration { width:100%; height:100%; object-fit:contain; display:block }
+    .image-area svg { width:100%; height:100% }
+    .empty { text-align:center; padding:20px; color:var(--muted) }.empty strong { display:block; font-size:14px; color:#44403c; margin:9px 0 4px }.empty p { font-size:12px }
+    .empty-icon { width:32px!important; height:32px!important; color:#78716c }
+    .image-tag { position:absolute; left:12px; top:12px; background:#ffffffed; border:1px solid #d6d3d1; border-radius:6px; padding:4px 8px; font-size:11px; color:#44403c }
+    .photo-body { padding:14px 16px }.photo-body p { font-size:12px }.photo-body .actions { margin-top:13px }
+    .actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px }.actions button { font-size:12px; padding:8px 12px }
+    .danger { color:#7f1d1d; border-color:#fca5a5 }.selected { border-color:#93c5fd; background:#eff6ff; color:#1e3a8a; padding:9px 12px; font-size:12px; border-top:1px solid #bfdbfe }
+    .notice { font-size:12px; border:1px solid; border-radius:8px; padding:11px 12px; margin-bottom:14px }
+    .success { color:#14532d; background:#f0fdf4; border-color:#86a58f }
+    .error { color:#7f1d1d; background:#fef2f2; border-color:#dca5a5 }
+    .warning { color:#78350f; background:#fffbeb; border-color:#d7b577 }
+    .info { color:var(--blue); background:#eff6ff; border-color:#a8bde7 }
+    .support { display:flex; gap:7px; align-items:center; color:var(--muted); font-size:11px; margin:10px 0 24px }.support svg { width:13px; height:13px; flex:none }
+    .fields-section { border-top:1px solid #e7e5e4; padding-top:20px }.fields-section h3 { margin-bottom:15px }
+    .fields { display:grid; grid-template-columns:1fr 1fr; gap:14px 18px }.fields label { margin-bottom:5px }.fields input,.fields select { font-size:13px }
+    .helper { color:var(--muted); font-size:11px; margin-top:5px }.editor-footer { border-top:1px solid var(--line); padding:16px 24px; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; background:white }
+    .editor-footer button { font-size:13px }.spinner { width:22px; height:22px; border:2px solid #d6d3d1; border-top-color:var(--blue); border-radius:50%; margin:0 auto 10px; animation:spin 1s linear infinite }
+    @keyframes spin { to { transform:rotate(360deg) } }
+    @media(prefers-reduced-motion:reduce) { .spinner { animation:none } }
+    @media(max-width:767px) { .shell { display:block } aside { padding:18px; gap:18px } aside nav { display:flex; flex-wrap:wrap; gap:2px } aside nav span { padding:7px; font-size:12px } aside p { display:none }.top { height:56px;padding:0 20px } main { padding:28px 20px }.heading { align-items:start; flex-direction:column }.filter { align-items:start; flex-wrap:wrap; gap:14px }.editor-header { padding:18px 20px }.scroll { padding:16px 20px 24px }.editor-footer { padding:14px 20px }.image-area { height:176px } }
+    @media(max-width:359px) { .fields { grid-template-columns:1fr }.editor-footer { gap:6px }.editor-footer button { padding:9px } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Ir para o conteúdo</a>
+  <div class="shell">
+    <aside aria-label="Identidade e navegação">
+      <div class="brand"><b aria-hidden="true">LV</b><div><strong>Locadora</strong><small>Administração</small></div></div>
+      <nav aria-label="Navegação cadastral"><span>Grupos e planos</span><span class="active" aria-current="page">Veículos</span><span>Clientes e condutores</span><span>Preços e serviços</span><span>Aluguéis</span><span>Sua empresa</span></nav>
+      <p>Sessão administrativa nesta aba</p>
+    </aside>
+    <div>
+      <header class="top"><span>Sua empresa</span></header>
+      <main id="content">
+        <div class="heading"><div><p class="eyebrow">Frota</p><h1>Veículos</h1><p class="muted">Consulte e mantenha os dados dos veículos ativos da empresa.</p></div><button class="primary" id="new">＋ Novo veículo</button></div>
+        <section class="filter" aria-label="Filtros existentes, ilustrativos"><div><label>Grupo</label><select disabled aria-label="Grupo"><option>Todos os grupos</option></select></div><span>□ Agrupar por grupo</span><span>Limpar filtro</span></section>
+        <p class="count">2 veículos ativos · 2 nesta página</p>
+        <div class="table"><table><caption hidden>Frota fictícia para revisão</caption><thead><tr><th>ID</th><th>Placa</th><th>Veículo</th><th>Cor</th><th>Combustível</th><th>Grupo</th><th>Ações</th></tr></thead><tbody>
+          <tr><td>…0001</td><td><span class="plate">FIC1A01</span></td><td><strong>Horizonte</strong><br><span class="muted">Marca fictícia · 2026</span></td><td>Prata</td><td>Gasolina</td><td>Econômico</td><td><button class="link" id="edit">Editar</button></td></tr>
+          <tr><td>…0002</td><td><span class="plate">FIC2B02</span></td><td><strong>Caminho</strong><br><span class="muted">Marca fictícia · 2025</span></td><td>Azul</td><td>Álcool</td><td>Intermediário</td><td><span class="muted">Ilustrativo</span></td></tr>
+        </tbody></table></div>
+        <p class="review-note">Protótipo F5 · Dados e imagem fictícios · Sem rede, arquivos pessoais ou persistência. O editor demonstra somente os fluxos especificados da foto.</p>
+      </main>
+    </div>
+  </div>
+  <dialog id="editor" aria-labelledby="editor-title">
+    <div class="editor">
+      <header class="editor-header"><div><p class="eyebrow">Cadastro de frota</p><h2 id="editor-title">Editar veículo</h2><p class="muted" id="vehicle-caption" style="font-size:12px;margin-top:6px">Horizonte · <span class="plate">FIC1A01</span></p></div><button class="close" id="close" aria-label="Fechar formulário">✕</button></header>
+      <div class="scroll">
+        <section class="review" aria-label="Ferramentas de revisão do protótipo">
+          <label for="scenario">Somente revisão · cenário demonstrado</label>
+          <select id="scenario">
+            <option value="active">Veículo com foto</option><option value="empty">Veículo sem foto</option><option value="new">Novo veículo, foto opcional</option>
+            <option value="read-error">Falha ao carregar a foto</option><option value="write-error">Falha no próximo envio</option><option value="invalid">Próxima seleção inválida</option>
+            <option value="rented">Veículo com aluguel aberto</option><option value="stale">Cadastro desatualizado</option><option value="race">Conflito durante o envio</option>
+             <option value="uncertain">Resposta perdida no envio ou remoção</option><option value="session">Sessão encerrada</option><option value="occupied">Processador ocupado</option><option value="timeout">Limite de processamento excedido</option>
+             <option value="new-write-error">Cadastro novo: falha no upload</option><option value="new-uncertain">Cadastro novo: resposta do upload perdida</option>
+          </select>
+          <p>Imagem ilustrada e seleção simulada. Estes controles não integram o produto.</p>
+        </section>
+        <div id="message" role="status" hidden></div>
+        <div id="error-summary" class="notice error" role="alert" tabindex="-1" hidden></div>
+        <section class="fields-section" aria-labelledby="data-title">
+          <div class="section-heading"><h3 id="data-title">Dados do veículo</h3><span class="badge" id="data-state">Cadastro salvo</span></div>
+          <form id="vehicle-form">
+            <fieldset class="fields" id="fields" style="border:0;padding:0;margin:0">
+              <div><label for="plate">Placa</label><input id="plate" value="FIC1A01" required></div>
+              <div><label for="group">Grupo</label><select id="group"><option>Econômico</option><option>Intermediário</option></select></div>
+              <div><label for="brand">Marca</label><input id="brand" value="Marca fictícia" required></div>
+              <div><label for="model">Modelo</label><input id="model" value="Horizonte" required></div>
+              <div><label for="color">Cor</label><input id="color" value="Prata" required></div>
+              <div><label for="year">Ano</label><input id="year" value="2026" inputmode="numeric" required></div>
+              <div><label for="fuel">Combustível</label><select id="fuel"><option>Gasolina</option><option>Gás</option><option>Diesel</option><option>Álcool</option></select></div>
+              <div><label for="capacity">Capacidade (litros)</label><input id="capacity" value="50" inputmode="decimal" required><p class="helper">Até três casas decimais.</p></div>
+            </fieldset>
+          </form>
+        </section>
+        <section aria-labelledby="photo-title">
+          <div class="section-heading"><h3 id="photo-title">Foto do veículo</h3><span class="badge">Opcional</span></div>
+          <div id="photo-notice" class="notice warning" hidden></div>
+          <div class="photo-card" id="photo-card">
+            <div class="image-area" id="visual"></div>
+            <div id="selection" class="selected" hidden>Prévia não enviada · Imagem fictícia · 1.600 × 1.000 pixels</div>
+            <div class="photo-body">
+              <p id="photo-description" class="muted">Uma imagem para identificar este veículo no cadastro.</p>
+              <p class="helper" id="file-help">JPEG ou PNG estático · Até 5 MiB e 16 megapixels.</p>
+              <div class="actions">
+                <button id="choose" aria-describedby="file-help">Selecionar imagem</button>
+                <button id="send" class="primary" hidden>Enviar foto</button>
+                <button id="discard" hidden>Descartar seleção</button>
+                <button id="remove" class="danger">Remover foto</button>
+                <button id="retry" hidden>Tentar novamente</button>
+                <button id="reload" hidden>Recarregar cadastro</button>
+              </div>
+              <p id="file-error" class="helper" style="color:#7f1d1d" hidden></p>
+            </div>
+          </div>
+          <p class="support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Acesso restrito à sua empresa. No cadastro novo, Salvar veículo também envia a foto selecionada.</p>
+        </section>
+      </div>
+      <footer class="editor-footer"><button id="discard-data" hidden>Descartar alterações</button><button id="cancel">Fechar</button><button class="primary" type="submit" form="vehicle-form" id="save">Salvar veículo</button></footer>
+    </div>
+  </dialog>
+  <template id="car">
+    <svg class="illustration" viewBox="0 0 640 300" role="img" aria-label="Ilustração fictícia de veículo prata, representando a foto do cadastro" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="scene" x2="0" y2="1"><stop stop-color="#ebe9e4"/><stop offset="1" stop-color="#f8f7f4"/></linearGradient><linearGradient id="metal" x2=".3" y2="1"><stop stop-color="#fafafa"/><stop offset=".45" stop-color="#b8c0c7"/><stop offset="1" stop-color="#707b83"/></linearGradient><linearGradient id="glass" x2="1" y2="1"><stop stop-color="#516775"/><stop offset="1" stop-color="#263e4c"/></linearGradient><radialGradient id="shadow"><stop stop-color="#292524" stop-opacity=".24"/><stop offset="1" stop-color="#292524" stop-opacity="0"/></radialGradient></defs>
+      <path fill="url(#scene)" d="M0 0h640v300H0z"/><path d="M0 218h640" stroke="#dedbd5"/><ellipse cx="327" cy="247" rx="250" ry="29" fill="url(#shadow)"/>
+      <path d="m100 187 56-20 71-62q16-12 39-12h124q25 0 48 20l63 55 43 14q16 5 18 23l-3 23-39 8H121q-25-1-27-19Z" fill="url(#metal)" stroke="#6c7880" stroke-width="2"/>
+      <path d="m179 166 62-55h70v55Zm144-55h60q21 0 39 15l42 40H323Z" fill="url(#glass)" stroke="#cad1d6" stroke-width="3"/>
+      <path d="M313 173v48m156-48 9 42M171 182h309" stroke="#7b8790" fill="none"/><path d="M177 191h62m111 0h77" stroke="#e7ecef" stroke-width="2"/>
+      <path d="m103 191 34-8-4 17-34 8m417-19 29 8 3 13-26-6" fill="#f3f4df" stroke="#8c979e"/><path d="m110 218 436-1" stroke="#616b73" stroke-width="4"/><path d="m177 167 12-8 18 1 5 9-30 3" fill="#aab5bc" stroke="#6c7880"/>
+      <g fill="#272c30" stroke="#78838a" stroke-width="3"><circle cx="185" cy="226" r="35"/><circle cx="471" cy="226" r="35"/></g><g fill="#bbc3c9" stroke="#e7ebee" stroke-width="2"><circle cx="185" cy="226" r="22"/><circle cx="471" cy="226" r="22"/></g><g stroke="#626f79" stroke-width="5"><path d="m185 205 0 42m-20-21h40m-35-15 29 30m0-30-29 30m301-36v42m-20-21h40m-35-15 29 30m0-30-29 30"/></g><g fill="#dfe5e9"><circle cx="185" cy="226" r="6"/><circle cx="471" cy="226" r="6"/></g>
+    </svg>
+  </template>
+  <script>
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const dialog = $("editor");
+    let active = true, selected = false, busy = false, dirty = false, created = true, blocked = false, readError = false;
+    let mode = "active", origin = $("edit"), generation = 0;
+    const saved = {};
+    const inputs = [...$("fields").querySelectorAll("input,select")];
+    inputs.forEach(input => saved[input.id] = input.value);
+    const imageIcon = '<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/></svg>';
+    function message(text = "", type = "success") { $("message").textContent = text; $("message").className = "notice " + type; $("message").hidden = !text; }
+    function error(text) { $("error-summary").textContent = text; $("error-summary").hidden = false; $("file-error").textContent = text; $("file-error").hidden = false; $("choose").setAttribute("aria-invalid","true"); $("choose").setAttribute("aria-describedby","file-help file-error"); $("error-summary").focus(); }
+    function clearError() { $("error-summary").hidden = true; $("file-error").hidden = true; $("choose").removeAttribute("aria-invalid"); $("choose").setAttribute("aria-describedby","file-help"); }
+    function render(loading = false) {
+      $("visual").replaceChildren();
+      if (loading || busy) {
+        $("visual").innerHTML = '<div class="empty" role="status"><div class="spinner" aria-hidden="true"></div><strong>' + (busy ? "Processando foto…" : "Carregando foto…") + '</strong><p>' + (busy ? "Aguarde a confirmação antes de continuar." : "Consultando a imagem do veículo.") + '</p></div>';
+      } else if ((active || selected) && !readError && mode !== "session") {
+        $("visual").append($("car").content.cloneNode(true));
+        const tag = document.createElement("span"); tag.className = "image-tag"; tag.textContent = selected ? "Prévia · ainda não enviada" : "Foto atual"; $("visual").append(tag);
+      } else {
+        const title = mode === "session" ? "Foto protegida" : readError ? "Foto temporariamente indisponível" : "Sem foto";
+        $("visual").innerHTML = '<div class="empty">' + imageIcon + '<strong>' + title + '</strong><p>' + (readError ? "O cadastro e a referência foram preservados." : mode === "session" ? "Entre novamente para acessar este cadastro." : "Este veículo pode continuar sem imagem.") + '</p></div>';
+      }
+      $("selection").hidden = !selected;
+      $("choose").textContent = active ? "Selecionar outra imagem" : "Selecionar imagem";
+      $("choose").hidden = mode === "session";
+      $("choose").disabled = busy || blocked || (created && dirty);
+      $("send").hidden = !selected || !created; $("send").textContent = active ? "Substituir foto" : "Enviar foto"; $("send").disabled = busy || blocked || dirty;
+      $("discard").hidden = !selected; $("discard").disabled = busy;
+      $("remove").hidden = !active || mode === "session"; $("remove").disabled = busy || blocked || dirty;
+      $("retry").hidden = !readError; $("retry").disabled = busy;
+      $("reload").hidden = !["stale","race","uncertain"].includes(mode) || !blocked;
+      $("close").disabled = busy; $("cancel").disabled = busy; $("save").disabled = busy || mode === "session" || mode === "rented" || blocked;
+      $("fields").disabled = busy || mode === "session" || mode === "rented" || blocked;
+      $("discard-data").hidden = !dirty; $("discard-data").disabled = busy;
+      $("data-state").textContent = !created ? "Ainda não salvo" : dirty ? "Alterações não salvas" : "Cadastro salvo";
+      $("editor-title").textContent = created ? "Editar veículo" : "Novo veículo";
+      $("vehicle-caption").hidden = !created;
+      let note = !created ? "A foto é opcional. Se selecionada, será enviada ao clicar em Salvar veículo." : dirty ? "Salve ou descarte as alterações cadastrais antes de alterar a foto." : mode === "rented" ? "Aluguel em aberto. A foto pode ser consultada, mas não alterada ou removida." : mode === "stale" ? "Cadastro desatualizado. Recarregue antes de alterar a foto." : mode === "race" && blocked ? "O veículo mudou durante o envio. A foto anterior foi mantida. Recarregue o cadastro." : mode === "uncertain" && blocked ? "Resultado não confirmado. Consulte novamente antes de alterar a foto." : mode === "session" ? "Sessão encerrada. Entre novamente no sistema para continuar." : "";
+      $("photo-notice").textContent = note; $("photo-notice").hidden = !note;
+      $("photo-description").textContent = selected && active ? "A foto atual só será substituída após a confirmação do envio." : "Uma imagem para identificar este veículo no cadastro.";
+      $("photo-card").setAttribute("aria-busy",String(busy || loading));
+    }
+    function reset(next) {
+      generation++; mode = next.replace(/^new-/, ""); created = next !== "new" && !next.startsWith("new-"); active = created && !["empty","session"].includes(mode); selected = false; busy = false; dirty = false;
+      blocked = ["rented","stale","session"].includes(mode); readError = mode === "read-error";
+      inputs.forEach(input => input.value = saved[input.id]); message(); clearError(); render();
+      if (mode === "read-error") message("Não foi possível carregar a foto. Tente novamente.", "error");
+    }
+    function open(next, source) { origin = source; $("scenario").value = next; reset(next); dialog.showModal(); $("close").focus(); }
+    function close() { if (!busy) dialog.close(); }
+    $("scenario").onchange = event => reset(event.target.value);
+    $("choose").onclick = () => {
+      clearError(); message();
+      if (mode === "invalid") { selected = false; render(); error("Imagem inválida. Selecione JPEG ou PNG estático, até 5 MiB e 16 megapixels."); mode = "active"; return; }
+      selected = true; readError = false; render(); $(created ? "send" : "save").focus();
+    };
+    $("discard").onclick = () => { selected = false; clearError(); message(); render(); $("choose").focus(); };
+    async function mutate(removing = false, creating = false) {
+      const revision = generation; const currentMode = mode;
+      busy = true; clearError(); message(removing ? "Removendo referência da foto…" : "Enviando e processando a imagem…","info"); render();
+      await new Promise(resolve => setTimeout(resolve,850));
+      if (revision !== generation || !dialog.open) return;
+      busy = false;
+      if (currentMode === "uncertain") { blocked = true; selected = false; message((creating ? "Veículo salvo, mas o envio da foto não foi confirmado. " : "") + "Resultado não confirmado. A resposta se perdeu; consulte o cadastro antes de tentar outra alteração.","warning"); render(); $("reload").focus(); return; }
+      if (currentMode === "race") { blocked = true; selected = false; message(); render(); error("O veículo foi alterado ou alugado durante o envio. A foto anterior foi preservada."); return; }
+      if (["write-error","occupied","timeout"].includes(currentMode)) {
+        const text = currentMode === "write-error" ? "Não foi possível enviar a foto. A foto atual e o cadastro foram preservados. Tente novamente." : currentMode === "occupied" ? "Processamento temporariamente ocupado. Tente novamente em instantes." : "Não foi possível processar a imagem dentro dos limites. A foto atual foi preservada.";
+        mode = "active"; render(); message(); error((creating ? "Veículo salvo, mas o envio da foto não foi concluído. " : "") + text); return;
+      }
+      const replacing = active; active = !removing; selected = false; render(); message(creating ? "Veículo e foto salvos." : removing ? "Foto removida. O veículo foi mantido." : replacing ? "Foto substituída." : "Foto adicionada."); $("choose").focus();
+    }
+    $("send").onclick = () => mutate(); $("remove").onclick = () => mutate(true);
+    $("retry").onclick = async () => {
+      render(true); const revision = generation; await new Promise(resolve => setTimeout(resolve,650));
+      if (revision !== generation || !dialog.open) return; readError = false; mode = "active"; message(); render(); $("choose").focus();
+    };
+    $("reload").onclick = async () => {
+      const revision = generation; render(true); await new Promise(resolve => setTimeout(resolve,650));
+      if (revision !== generation || !dialog.open) return;
+      blocked = false; selected = false; mode = "active"; clearError(); render(); message("Cadastro consultado novamente. A foto exibida corresponde à referência atual.","info"); $("choose").focus();
+    };
+    inputs.forEach(input => input.addEventListener("input",() => { dirty = true; render(); }));
+    $("discard-data").onclick = () => { inputs.forEach(input => input.value = saved[input.id]); dirty = false; render(); $("save").focus(); };
+    $("vehicle-form").onsubmit = async event => {
+      event.preventDefault(); if (busy || blocked) return;
+      const withPhoto = !created && selected;
+      created = true; dirty = false; inputs.forEach(input => saved[input.id] = input.value);
+      if (withPhoto) { await mutate(false, true); return; }
+      render(); message("Veículo salvo. A foto é opcional."); $("choose").focus();
+    };
+    $("close").onclick = close; $("cancel").onclick = close;
+    dialog.addEventListener("keydown",event => {
+      if (event.key !== "Tab") return;
+      const controls = [...dialog.querySelectorAll("button,input,select,[tabindex='0']")]
+        .filter(element => !element.disabled && element.getClientRects().length > 0);
+      const first = controls[0], last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    });
+    dialog.addEventListener("cancel",event => { if (busy) event.preventDefault(); });
+    dialog.addEventListener("close",() => { generation++; selected = false; $("visual").replaceChildren(); origin?.focus(); });
+    $("edit").onclick = event => open("active",event.currentTarget); $("new").onclick = event => open("new",event.currentTarget);
+    open("active",$("edit"));
+  </script>
+</body>
+</html>
