@@ -12,7 +12,7 @@ public sealed class AuditoriaCadastro : IEntidadeEmpresa
         "cpf", "cnpj", "rg", "cnh", "telefone", "email", "endereco", "clienteId",
         "clientePfId", "clientePjId", "validadeCnh", "preco", "precoUnitario", "inicioVigenciaUtc", "excluidoEmUtc",
         "condutorId", "veiculoId", "planoId", "retornoPrevistoUtc", "hodometroInicial", "itens", "revisao",
-        "retornoRealUtc", "hodometroFinal", "litrosRestantes", "demonstrativoFinal", "estado",
+        "retornoRealUtc", "hodometroFinal", "litrosRestantes", "demonstrativoFinal", "estado", "fotoAtivaId",
     ];
 
     public Guid Id { get; private set; }
