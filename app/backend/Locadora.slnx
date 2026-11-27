@@ -4,6 +4,7 @@
     <Project Path="src/Locadora.Application/Locadora.Application.csproj" />
     <Project Path="src/Locadora.Domain/Locadora.Domain.csproj" />
     <Project Path="src/Locadora.Infrastructure/Locadora.Infrastructure.csproj" />
+    <Project Path="src/Locadora.ProcessadorImagens/Locadora.ProcessadorImagens.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Locadora.Application.Tests/Locadora.Application.Tests.csproj" />
