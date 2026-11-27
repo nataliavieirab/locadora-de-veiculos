@@ -1,4 +1,5 @@
 using Locadora.Domain.Modulos.Transversal;
+using Locadora.Domain.Modulos.Fotos;
 
 namespace Locadora.Domain.Modulos.FrotaPrecos;
 
@@ -18,6 +19,7 @@ public sealed class Veiculo : CadastroExcluivel
     public decimal CapacidadeLitros { get; private set; }
     public int Ano { get; private set; }
     public Guid GrupoId { get; private set; }
+    public Guid? FotoAtivaId { get; private set; }
 
     private Veiculo()
     {
@@ -32,6 +34,37 @@ public sealed class Veiculo : CadastroExcluivel
         var veiculo = new Veiculo(empresaId, agora);
         veiculo.Alterar(dados, agora);
         return veiculo;
+    }
+
+    public void DefinirFoto(FotoObjeto nova, FotoObjeto? anterior, DateTimeOffset agora)
+    {
+        ExigirAtivo();
+        ExigirFoto(anterior, agora);
+        if (nova.EmpresaId != EmpresaId || nova.VeiculoId != Id || nova.Estado != EstadoFoto.Pendente
+            || agora < nova.AlteradoEmUtc)
+            throw new InvalidOperationException("A nova foto não pertence à pendência do veículo.");
+        RegistrarAlteracao(agora);
+        anterior?.Inativar(agora);
+        nova.Ativar(agora);
+        FotoAtivaId = nova.Id;
+    }
+
+    public void RemoverFoto(FotoObjeto? atual, DateTimeOffset agora)
+    {
+        ExigirAtivo();
+        ExigirFoto(atual, agora);
+        if (atual is null) return;
+        RegistrarAlteracao(agora);
+        atual.Inativar(agora);
+        FotoAtivaId = null;
+    }
+
+    private void ExigirFoto(FotoObjeto? atual, DateTimeOffset agora)
+    {
+        if (agora < AlteradoEmUtc || atual?.Id != FotoAtivaId
+            || atual is not null && (atual.EmpresaId != EmpresaId || atual.VeiculoId != Id
+                || atual.Estado != EstadoFoto.Ativa || agora < atual.AlteradoEmUtc))
+            throw new InvalidOperationException("A referência atual da foto não é válida.");
     }
 
     public void Alterar(DadosVeiculo dados, DateTimeOffset agora)

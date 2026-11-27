@@ -23,7 +23,8 @@ public sealed class VeiculoTests
         Assert.AreEqual(dados.CapacidadeLitros, veiculo.CapacidadeLitros);
         Assert.AreEqual(dados.Ano, veiculo.Ano);
         Assert.AreEqual(dados.GrupoId, veiculo.GrupoId);
-        Assert.IsFalse(typeof(Veiculo).GetProperties().Any(propriedade => propriedade.Name.Contains("Foto", StringComparison.OrdinalIgnoreCase)));
+        Assert.IsNull(veiculo.FotoAtivaId);
+        Assert.IsFalse(typeof(DadosVeiculo).GetProperties().Any(propriedade => propriedade.Name.Contains("Foto", StringComparison.OrdinalIgnoreCase)));
     }
 
     [TestMethod]
