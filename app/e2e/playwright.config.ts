@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
+import { mkdirSync, readFileSync, realpathSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 
 const raiz = path.resolve(__dirname, '../..');
@@ -24,8 +25,20 @@ ambienteApi.Autenticacao__Jwt__Chaves__v1 = chave;
 // Estes limites valem somente no processo da API iniciado pela suíte E2E.
 ambienteApi.Limites__Registro__Quantidade = '100';
 ambienteApi.Limites__Login__Quantidade = '100';
+// Volume sintético privado por execução, fora do webroot, sem R2/credenciais.
+const fotos = path.join(raiz, 'app/backend/obj', `e2e-fotos-${randomBytes(8).toString('hex')}`);
+mkdirSync(path.join(fotos, 'objetos'), { recursive: true, mode: 0o700 });
+mkdirSync(path.join(fotos, 'temporarios'), { mode: 0o700 });
+const cgroup = readFileSync('/proc/self/cgroup', 'utf8').trim().split('\n').find(l => l.startsWith('0::'))!.slice(3);
+ambienteApi.Fotos__Provedor = 'Local';
+ambienteApi.Fotos__RaizPrivada = path.join(fotos, 'objetos');
+ambienteApi.Fotos__Processador__Executavel = realpathSync('/usr/bin/dotnet');
+ambienteApi.Fotos__Processador__Assembly = path.join(raiz, 'app/backend/src/Locadora.ProcessadorImagens/bin/Debug/net10.0/Locadora.ProcessadorImagens.dll');
+ambienteApi.Fotos__Processador__Cgroups = path.dirname(path.join('/sys/fs/cgroup', cgroup));
+ambienteApi.Fotos__Processador__Temporarios = path.join(fotos, 'temporarios');
 
 export default defineConfig({
+  metadata: { fotosPrivadasRaiz: fotos },
   testDir: './tests',
   fullyParallel: false,
   workers: 1,

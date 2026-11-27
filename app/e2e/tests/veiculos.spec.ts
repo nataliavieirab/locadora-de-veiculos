@@ -36,8 +36,9 @@ test('frota sem foto: cadastro, erros, filtro, agrupamento e exclusão por tecla
   await page.keyboard.press('Enter');
   const dialogo = page.getByRole('dialog');
   await expect(page.getByLabel('Placa', { exact: true })).toBeFocused();
-  await expect(dialogo.locator('input[type="file"], img')).toHaveCount(0);
-  await expect(dialogo).not.toContainText(/foto|imagem|upload/i);
+  await expect(dialogo.locator('input[type="file"]')).toHaveCount(1);
+  await expect(dialogo.locator('img')).toHaveCount(0);
+  await expect(dialogo).toContainText('Se selecionada, será enviada ao clicar em Salvar veículo');
   await tabAte(page, dialogo.getByRole('button', { name: 'Salvar veículo', exact: true }));
   await page.keyboard.press('Enter');
   await expect(page.locator('#erro-editor-veiculos')).toBeFocused();
@@ -66,6 +67,10 @@ test('frota sem foto: cadastro, erros, filtro, agrupamento e exclusão por tecla
   await expect(page.getByLabel('Capacidade (litros)')).toBeFocused();
   await page.keyboard.type('48,125');
   await tabAte(page, dialogo.getByRole('button', { name: 'Salvar veículo', exact: true }));
+  await page.keyboard.press('Enter');
+  await expect(dialogo).toContainText('Veículo salvo. A foto é opcional');
+  await expect(page.locator('#selecionar-foto')).toBeFocused();
+  await tabAte(page, dialogo.getByRole('button', { name: 'Fechar', exact: true }));
   await page.keyboard.press('Enter');
   await expect(dialogo).not.toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'ABC-1D23' })).toContainText('Gás');
@@ -119,6 +124,9 @@ test('frota sem foto: cadastro, erros, filtro, agrupamento e exclusão por tecla
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.type('Verde');
   await tabAte(page, dialogo.getByRole('button', { name: 'Salvar veículo', exact: true }));
+  await page.keyboard.press('Enter');
+  await expect(dialogo).toContainText('Veículo salvo. A foto é opcional');
+  await tabAte(page, dialogo.getByRole('button', { name: 'Fechar', exact: true }));
   await page.keyboard.press('Enter');
   await expect(dialogo).not.toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'ABC-1D23' })).toContainText('Verde');

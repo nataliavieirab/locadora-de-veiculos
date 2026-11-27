@@ -73,8 +73,12 @@ async function entrar(page: Page, usuario: string) {
 }
 
 async function teclado(alvo: Locator, tecla = 'Enter') {
-  await alvo.focus();
-  await expect(alvo).toBeFocused();
+  // A consulta inicial pode substituir o botão vazio pelo da lista carregada.
+  // Reobtém o alvo antes da tecla, sem repetir o comando de negócio.
+  await expect(async () => {
+    await alvo.focus();
+    await expect(alvo).toBeFocused({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
   await alvo.press(tecla);
 }
 
