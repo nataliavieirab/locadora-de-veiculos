@@ -1,6 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
@@ -17,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Locadora.Api\Locadora.Api.csproj" />
     <ProjectReference Include="..\..\src\Locadora.Infrastructure\Locadora.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Locadora.ProcessadorImagens\Locadora.ProcessadorImagens.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

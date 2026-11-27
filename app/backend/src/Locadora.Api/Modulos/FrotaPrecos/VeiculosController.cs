@@ -2,6 +2,8 @@ using Locadora.Api.Host;
 using Locadora.Application.Modulos.FrotaPrecos;
 using Locadora.Application.Modulos.Transversal;
 using Locadora.Application.Modulos.Locacoes;
+using Locadora.Application.Modulos.Fotos;
+using Locadora.Api.Modulos.Fotos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +13,7 @@ namespace Locadora.Api.Modulos.FrotaPrecos;
 [Authorize]
 [ServiceFilter(typeof(FiltroSemCache))]
 [Route("/api/v1/veiculos")]
-public sealed class VeiculosController(CasosVeiculos casos, CasosSelecoesLocacao selecoes) : ControllerBase
+public sealed class VeiculosController(CasosVeiculos casos, CasosSelecoesLocacao selecoes, ConsultaFotos fotos) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Listar(CancellationToken cancelamento, Guid? grupoId = null, int page = 1,
@@ -26,11 +28,15 @@ public sealed class VeiculosController(CasosVeiculos casos, CasosSelecoesLocacao
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType<SaidaDetalheVeiculo>(200)]
     public async Task<IActionResult> Consultar(Guid id, CancellationToken cancelamento)
     {
-        var veiculo = await casos.ConsultarAsync(id, cancelamento);
+        var detalhe = await fotos.ConsultarAsync(id, cancelamento);
+        var veiculo = detalhe.Veiculo;
         Response.Headers.ETag = VersaoCadastro.Etag(veiculo.RowVersion);
-        return Ok(SaidaVeiculo.De(veiculo));
+        return Ok(new SaidaDetalheVeiculo(veiculo.Id, veiculo.Placa, veiculo.Marca, veiculo.Cor,
+            veiculo.Modelo, veiculo.Combustivel.ToString(), DecimalTransporte.Escrever(veiculo.CapacidadeLitros),
+            veiculo.Ano, veiculo.GrupoId, SaidaFoto.De(detalhe.Foto), detalhe.PossuiAluguelAberto));
     }
 
     [HttpPost]

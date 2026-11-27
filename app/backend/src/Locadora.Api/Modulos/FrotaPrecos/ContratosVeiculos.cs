@@ -6,6 +6,10 @@ using Locadora.Domain.Modulos.Transversal;
 
 namespace Locadora.Api.Modulos.FrotaPrecos;
 
+public sealed record SaidaDetalheVeiculo(Guid Id, string Placa, string Marca, string Cor, string Modelo,
+    string Combustivel, string CapacidadeLitros, int Ano, Guid GrupoId,
+    Locadora.Api.Modulos.Fotos.SaidaFoto? Foto, bool PossuiAluguelAberto);
+
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed class EntradaVeiculo
 {

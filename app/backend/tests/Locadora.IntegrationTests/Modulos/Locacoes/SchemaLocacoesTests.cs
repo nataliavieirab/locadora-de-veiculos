@@ -24,7 +24,7 @@ public sealed class SchemaLocacoesTests
                 var f2 = migrations[Array.FindIndex(migrations, m => m.EndsWith("_ContratacaoFase3", StringComparison.Ordinal)) - 1];
                 await inicial.GetService<IMigrator>().MigrateAsync(f2);
             }
-            await using var cenario = await CenarioLocacoesSql.CriarAsync(conexao);
+            await using var cenario = await CenarioLocacoesSql.CriarAsync(conexao, schemaFase2: true);
             var dados = cenario.Dados;
             var versoes = new[] { dados.Cliente.RowVersion, dados.Condutor.RowVersion, dados.Veiculo.RowVersion,
                 dados.Grupo.RowVersion, dados.Plano.RowVersion, dados.Taxas.Single().RowVersion }.Select(v => v.ToArray()).ToArray();

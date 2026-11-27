@@ -110,15 +110,15 @@ public sealed class VeiculosHttpTests
     }
 
     [TestMethod]
-    public async Task NaoExpoeRotasDeFotoNaFase2()
+    public async Task FotoOpcionalNaFase5ExigePrecondicaoSemAlterarCadastro()
     {
         using var cliente = await AutenticadoAsync();
         var veiculo = await CriarAsync(cliente, Dados(await GrupoAsync(cliente)));
-        foreach (var metodo in new[] { HttpMethod.Get, HttpMethod.Put, HttpMethod.Delete, HttpMethod.Post })
+        foreach (var metodo in new[] { HttpMethod.Get, HttpMethod.Delete })
         {
             using var pedido = new HttpRequestMessage(metodo, $"/api/v1/veiculos/{veiculo.Id}/foto");
             using var resposta = await cliente.SendAsync(pedido);
-            Assert.AreEqual(HttpStatusCode.NotFound, resposta.StatusCode);
+            Assert.AreEqual(metodo == HttpMethod.Get ? 404 : 428, (int)resposta.StatusCode);
         }
     }
 

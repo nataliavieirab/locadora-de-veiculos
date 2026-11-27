@@ -7,7 +7,7 @@ namespace Locadora.IntegrationTests.Modulos.Transversal;
 public sealed class SuperficieFase2Tests
 {
     [TestMethod]
-    public async Task OpenApiContemCadastrosELocacoesFase4SemRotasDeFotoEEntradaSemEmpresa()
+    public async Task OpenApiPreservaCadastrosELocacoesEAcrescentaSomenteFotoPrivadaNaFase5()
     {
         using var cliente = Clientes.Criar();
         using var resposta = await cliente.GetAsync("/openapi/v1.json");
@@ -41,9 +41,12 @@ public sealed class SuperficieFase2Tests
             CollectionAssert.AreEquivalent(metodos,
                 caminho.EnumerateObject().Select(item => item.Name).ToArray(), rota);
         }
+        var rotasFoto = caminhos.EnumerateObject().Where(item => item.Name.Contains("foto", StringComparison.OrdinalIgnoreCase)).ToArray();
+        Assert.AreEqual(1, rotasFoto.Length);
+        Assert.AreEqual("/api/v1/veiculos/{id}/foto", rotasFoto[0].Name);
+        CollectionAssert.AreEquivalent(new[] { "get", "put", "delete" }, rotasFoto[0].Value.EnumerateObject().Select(p => p.Name).ToArray());
         Assert.IsFalse(caminhos.EnumerateObject().Any(item =>
-            item.Name.Contains("foto", StringComparison.OrdinalIgnoreCase)
-            || item.Name.Contains("conclu", StringComparison.OrdinalIgnoreCase)
+            item.Name.Contains("conclu", StringComparison.OrdinalIgnoreCase)
             || item.Name.Contains("__test", StringComparison.OrdinalIgnoreCase)));
         var esquemas = json.GetProperty("components").GetProperty("schemas");
         foreach (var esquema in esquemas.EnumerateObject().Where(item => item.Name.StartsWith("Entrada", StringComparison.Ordinal)))

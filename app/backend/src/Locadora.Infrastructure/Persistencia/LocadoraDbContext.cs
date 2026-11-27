@@ -2,6 +2,7 @@ using Locadora.Domain.Modulos.Acesso;
 using Locadora.Domain.Modulos.FrotaPrecos;
 using Locadora.Domain.Modulos.Pessoas;
 using Locadora.Domain.Modulos.Locacoes;
+using Locadora.Domain.Modulos.Fotos;
 using Locadora.Domain.Modulos.Transversal;
 using Locadora.Infrastructure.Modulos.Acesso.Registro;
 using Locadora.Infrastructure.Modulos.Transversal;
@@ -49,6 +50,8 @@ public sealed class LocadoraDbContext : IdentityUserContext<UsuarioConta, Guid>
     public DbSet<DemonstrativoFinal> DemonstrativosFinais => Set<DemonstrativoFinal>();
     public DbSet<ItemDevolucao> ItensDevolucao => Set<ItemDevolucao>();
     public DbSet<ComponenteFinal> ComponentesFinal => Set<ComponenteFinal>();
+    public DbSet<FotoObjeto> FotosObjetos => Set<FotoObjeto>();
+    public DbSet<TrabalhoObjeto> TrabalhosObjetos => Set<TrabalhoObjeto>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -117,5 +120,8 @@ public sealed class LocadoraDbContext : IdentityUserContext<UsuarioConta, Guid>
         builder.Entity<DemonstrativoFinal>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
         builder.Entity<ItemDevolucao>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
         builder.Entity<ComponenteFinal>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        MapeamentosFotos.Aplicar(builder);
+        builder.Entity<FotoObjeto>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
+        builder.Entity<TrabalhoObjeto>().HasQueryFilter(item => EmpresaAtualId != null && item.EmpresaId == EmpresaAtualId);
     }
 }
